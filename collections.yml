@@ -1,0 +1,11 @@
+---
+# role: samba_dc
+# file: collections.yml
+
+collections:
+  - name: community.crypto
+    version: '>=3.0.0'
+  - name: community.general
+    version: '>=12.0.0'
+  - name: jomrr.samba
+    version: '>=1.0.1'

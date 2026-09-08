@@ -1,0 +1,140 @@
+---
+# role: samba_dc
+# file: molecule/resources/playbooks/prepare.yml
+
+- name: SAMBA_DC | Prepare dedicated domain controller containers
+  hosts: all
+  gather_facts: true
+  vars:
+    __samba_dc_test_packages:
+      Debian: [smbclient, dnsutils, openssl, python3-cryptography]
+      RedHat: [samba-client, bind-utils, openssl, python3-cryptography]
+      Suse: [samba-client, bind-utils, openssl]
+  tasks:
+    - name: SAMBA_DC | Load platform package names
+      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
+      vars:
+        __samba_dc_platform_files:
+          files:
+            - "{{ ansible_facts.distribution }}.yml"
+            - "{{ ansible_facts.os_family }}.yml"
+          paths:
+            - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
+
+    - name: SAMBA_DC | Refresh Debian package metadata
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_facts.pkg_mgr == 'apt'
+
+    - name: SAMBA_DC | Install packages for the rootless provisioning fixture and clients
+      ansible.builtin.package:
+        name: "{{ __samba_dc_packages + __samba_dc_test_packages[ansible_facts.os_family] }}"
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: SAMBA_DC | Prepare certificates supplied by an external PKI
+      when: samba_dc_tls_certfile == '/etc/samba/tls/dc1.crt'
+      block:
+        - name: SAMBA_DC | Create the fixture certificate directory
+          ansible.builtin.file:
+            path: /etc/samba/tls
+            state: directory
+            owner: root
+            group: root
+            mode: "0700"
+
+        - name: SAMBA_DC | Generate disposable fixture keys
+          community.crypto.openssl_privatekey:
+            path: "/etc/samba/tls/{{ __samba_dc_test_key }}.key"
+            type: RSA
+            size: 3072
+            owner: root
+            group: root
+            mode: "0600"
+          loop: [ca, dc1]
+          loop_control:
+            loop_var: __samba_dc_test_key
+
+        - name: SAMBA_DC | Create the test CA request
+          community.crypto.openssl_csr:
+            path: /etc/samba/tls/ca.csr
+            privatekey_path: /etc/samba/tls/ca.key
+            common_name: Molecule disposable CA
+            basic_constraints: ['CA:TRUE']
+            basic_constraints_critical: true
+            key_usage: [keyCertSign, cRLSign]
+            key_usage_critical: true
+            mode: "0644"
+
+        - name: SAMBA_DC | Create the disposable CA certificate
+          community.crypto.x509_certificate:
+            path: /etc/samba/tls/ca.crt
+            csr_path: /etc/samba/tls/ca.csr
+            privatekey_path: /etc/samba/tls/ca.key
+            provider: selfsigned
+            selfsigned_not_after: +2d
+            mode: "0644"
+
+        - name: SAMBA_DC | Create the DC certificate request
+          community.crypto.openssl_csr:
+            path: /etc/samba/tls/dc1.csr
+            privatekey_path: /etc/samba/tls/dc1.key
+            common_name: dc1.ad.example.test
+            subject_alt_name: ['DNS:dc1.ad.example.test']
+            extended_key_usage: [serverAuth]
+            key_usage: [digitalSignature, keyEncipherment]
+            mode: "0644"
+
+        - name: SAMBA_DC | Issue the DC certificate from the test CA
+          community.crypto.x509_certificate:
+            path: /etc/samba/tls/dc1.crt
+            csr_path: /etc/samba/tls/dc1.csr
+            ownca_path: /etc/samba/tls/ca.crt
+            ownca_privatekey_path: /etc/samba/tls/ca.key
+            provider: ownca
+            ownca_not_after: +2d
+            mode: "0644"
+
+    - name: SAMBA_DC | Fit provisioned identities inside the rootless UID namespace
+      ansible.builtin.replace:
+        path: /usr/share/samba/setup/idmap_init.ldif
+        regexp: "{{ __samba_dc_idmap_bound.regexp }}"
+        replace: "{{ __samba_dc_idmap_bound.value }}"
+      loop:
+        - regexp: '^lowerBound: .*'
+          value: 'lowerBound: 10000'
+        - regexp: '^upperBound: .*'
+          value: 'upperBound: 60000'
+      loop_control:
+        loop_var: __samba_dc_idmap_bound
+        label: "{{ __samba_dc_idmap_bound.value }}"
+
+    - name: SAMBA_DC | Resolve the DC to its container address
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: ' dc1.ad.example.test '
+        line: "{{ ansible_facts.default_ipv4.address }} dc1.ad.example.test dc1"
+        unsafe_writes: true
+
+    - name: SAMBA_DC | Discover resolver services in the test image
+      ansible.builtin.service_facts:
+
+    - name: SAMBA_DC | Release DNS port 53 in the test container
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: stopped
+        enabled: false
+        masked: true
+      when: "'systemd-resolved.service' in ansible_facts.services"
+
+    - name: SAMBA_DC | Use the local AD DNS service for test clients
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: "0644"
+        unsafe_writes: true
+        content: |
+          nameserver 127.0.0.1
+          search ad.example.test

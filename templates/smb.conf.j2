@@ -1,0 +1,53 @@
+# Managed by ansible.
+# file: {{ template_destpath }}
+
+[global]
+    server role = active directory domain controller
+    ad dc functional level = {{ samba_dc_function_level }}
+    workgroup = {{ samba_dc_domain | upper }}
+    realm = {{ samba_dc_realm | upper }}
+    netbios name = {{ samba_dc_hostname | upper }}
+    dns forwarder = {{ samba_dc_dns_forwarders | join(' ') }}
+    idmap_ldb:use rfc2307 = {{ samba_dc_use_rfc2307 | ternary('yes', 'no') }}
+
+    restrict anonymous = {{ samba_dc_restrict_anonymous }}
+    server min protocol = {{ samba_dc_server_min_protocol }}
+    server signing = {{ samba_dc_server_signing }}
+    ntlm auth = {{ samba_dc_ntlm_auth }}
+    ldap server require strong auth = {{ samba_dc_ldap_require_strong_auth }}
+    password hash userPassword schemes = {{ samba_dc_password_hash_schemes | join(' ') }}
+
+    disable netbios = yes
+    smb ports = 445
+    server services = -nbt
+    printcap name = /dev/null
+    load printers = no
+    disable spoolss = yes
+    printing = bsd
+
+    tls enabled = {{ samba_dc_tls_enabled | ternary('yes', 'no') }}
+    tls keyfile = {{ samba_dc_tls_keyfile }}
+    tls certfile = {{ samba_dc_tls_certfile }}
+    tls cafile = {{ samba_dc_tls_cafile }}
+    tls crlfile = {{ samba_dc_tls_crlfile }}
+    tls dh params file = {{ samba_dc_tls_dh_params_file }}
+    tls priority = {{ samba_dc_tls_priority }}
+
+    logging = file
+    log level = {{ samba_dc_log_level }}
+    max log size = {{ samba_dc_max_log_size }}
+    full_audit:syslog = no
+    full_audit:success = {{ samba_dc_audit_success | join(' ') }}
+    full_audit:failure = {{ samba_dc_audit_failure | join(' ') }}
+    full_audit:log_secdesc = {{ samba_dc_audit_log_secdesc | ternary('yes', 'no') }}
+    full_audit:prefix = IP=%I|USER=%u|PROTOCOL=%R|VOLUME=%S
+
+[sysvol]
+    path = {{ __samba_dc_sysvol_dir }}
+    read only = no
+    vfs objects = full_audit dfs_samba4 acl_xattr
+
+[netlogon]
+    path = {{ __samba_dc_sysvol_dir }}/{{ samba_dc_realm | lower }}/scripts
+    read only = no
+    vfs objects = full_audit dfs_samba4 acl_xattr

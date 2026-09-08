@@ -1,0 +1,10 @@
+---
+# role: samba_dc
+# file: handlers/main.yml
+
+- name: SAMBA_DC | Restart the domain controller
+  ansible.builtin.systemd_service:
+    name: "{{ __samba_dc_service }}"
+    masked: false
+    state: restarted
+  listen: restart domain controller

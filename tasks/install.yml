@@ -1,0 +1,29 @@
+---
+# role: samba_dc
+# file: tasks/install.yml
+
+- name: SAMBA_DC | Install Samba and its Python bindings
+  ansible.builtin.package:
+    name: "{{ __samba_dc_packages }}"
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: SAMBA_DC | Restrict access to Samba audit logs
+  ansible.builtin.file:
+    path: /var/log/samba
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: SAMBA_DC | Stop and mask standalone Samba services
+  ansible.builtin.systemd_service:
+    name: "{{ __samba_dc_standalone_service }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop: "{{ __samba_dc_standalone_services }}"
+  loop_control:
+    loop_var: __samba_dc_standalone_service
+    label: "{{ __samba_dc_standalone_service }}"

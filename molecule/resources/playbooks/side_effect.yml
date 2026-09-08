@@ -1,0 +1,36 @@
+---
+# role: samba_dc
+# file: molecule/resources/playbooks/side_effect.yml
+
+- name: SAMBA_DC | Exercise service restoration
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: SAMBA_DC | Exercise the supported TLS opt out
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars:
+        samba_dc_tls_enabled: false
+
+    - name: SAMBA_DC | Verify LDAPS is disabled
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 636
+        state: stopped
+        timeout: 30
+
+    - name: SAMBA_DC | Load the platform service name
+      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
+      vars:
+        __samba_dc_platform_files:
+          files:
+            - "{{ ansible_facts.distribution }}.yml"
+            - "{{ ansible_facts.os_family }}.yml"
+          paths:
+            - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
+
+    - name: SAMBA_DC | Stop and disable the domain controller before reconverge
+      ansible.builtin.systemd_service:
+        name: "{{ __samba_dc_service }}"
+        state: stopped
+        enabled: false

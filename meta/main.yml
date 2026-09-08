@@ -1,0 +1,18 @@
+---
+# role: samba_dc
+# file: meta/main.yml
+
+galaxy_info:
+  author: Jonas Mauer
+  description: Ansible role for provisioning and running the first Samba Active Directory domain controller.
+  galaxy_tags:
+    - samba
+    - activedirectory
+    - domaincontroller
+    - dns
+    - kerberos
+  issue_tracker_url: https://github.com/jomrr/ansible-role-samba_dc/issues
+  license: MIT
+  min_ansible_version: "2.20"
+  namespace: jomrr
+  role_name: samba_dc

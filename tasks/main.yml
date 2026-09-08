@@ -1,0 +1,29 @@
+---
+# role: samba_dc
+# file: tasks/main.yml
+
+- name: SAMBA_DC | Load platform settings
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
+  vars:
+    __samba_dc_platform_files:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: SAMBA_DC | Install domain controller packages
+  ansible.builtin.import_tasks: install.yml
+
+- name: SAMBA_DC | Configure and provision the domain
+  ansible.builtin.import_tasks: provision.yml
+
+- name: SAMBA_DC | Apply pending configuration changes
+  ansible.builtin.meta: flush_handlers
+
+- name: SAMBA_DC | Enable and start the domain controller
+  ansible.builtin.systemd_service:
+    name: "{{ __samba_dc_service }}"
+    masked: false
+    enabled: true
+    state: started

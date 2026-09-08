@@ -1,0 +1,410 @@
+---
+# role: samba_dc
+# file: molecule/resources/playbooks/verify.yml
+
+- name: SAMBA_DC | Verify the running domain controller
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: SAMBA_DC | Query the LDAP discovery record through Samba DNS
+      ansible.builtin.command:
+        argv:
+          - dig
+          - '@127.0.0.1'
+          - _ldap._tcp.ad.example.test
+          - SRV
+          - +short
+          - +tries=1
+          - +time=2
+      changed_when: false
+      register: __samba_dc_ldap_srv
+      until: "'389 dc1.ad.example.test.' in __samba_dc_ldap_srv.stdout"
+      retries: 30
+      delay: 2
+
+    - name: SAMBA_DC | Authenticate with Kerberos and query the directory
+      jomrr.samba.samba_user_info:
+        server: dc1.ad.example.test
+        realm: "{{ samba_dc_realm }}"
+        bind_username: Administrator
+        bind_password: "{{ samba_dc_admin_password }}"
+        username: Administrator
+      no_log: true
+      register: __samba_dc_administrator
+
+    - name: SAMBA_DC | Verify the domain Administrator is reachable
+      ansible.builtin.assert:
+        that:
+          - __samba_dc_administrator.users | length == 1
+          - __samba_dc_administrator.users[0].username == 'Administrator'
+        quiet: true
+
+    - name: SAMBA_DC | Read SYSVOL over authenticated SMB
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - //dc1.ad.example.test/sysvol
+          - --use-kerberos=required
+          - -U
+          - Administrator
+          - -c
+          - 'cd ad.example.test/Policies; ls'
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Reject SMB dialects older than SMB 3.1.1
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - //dc1.ad.example.test/sysvol
+          - --option=client min protocol=SMB2_02
+          - -m
+          - "{{ __samba_dc_test_smb_dialect }}"
+          - -N
+          - -c
+          - quit
+      loop: [SMB2_02, SMB2_10, SMB3_00, SMB3_02]
+      loop_control:
+        loop_var: __samba_dc_test_smb_dialect
+      register: __samba_dc_obsolete_smb
+      changed_when: false
+      failed_when: >-
+        __samba_dc_obsolete_smb.rc == 0 or
+        'NT_STATUS_NOT_SUPPORTED' not in (__samba_dc_obsolete_smb.stdout + __samba_dc_obsolete_smb.stderr)
+
+    - name: SAMBA_DC | Verify LDAPS trust and hostname with TLS 1.2 and 1.3
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - s_client
+          - -connect
+          - dc1.ad.example.test:636
+          - -servername
+          - dc1.ad.example.test
+          - -verify_hostname
+          - dc1.ad.example.test
+          - -verify_return_error
+          - -CAfile
+          - "{{ __samba_dc_test_cafile }}"
+          - "{{ __samba_dc_test_tls_version }}"
+        stdin: ''
+      loop: [-tls1_2, -tls1_3]
+      loop_control:
+        loop_var: __samba_dc_test_tls_version
+      changed_when: false
+
+    - name: SAMBA_DC | Reject obsolete TLS versions at the server
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - s_client
+          - -connect
+          - dc1.ad.example.test:636
+          - -cipher
+          - 'ALL:@SECLEVEL=0'
+          - "{{ __samba_dc_test_tls_version }}"
+        stdin: ''
+      loop: [-tls1, -tls1_1]
+      loop_control:
+        loop_var: __samba_dc_test_tls_version
+      register: __samba_dc_obsolete_tls
+      changed_when: false
+      failed_when: >-
+        __samba_dc_obsolete_tls.rc == 0 or
+        ('alert protocol version' not in __samba_dc_obsolete_tls.stderr and
+         'unexpected eof while reading' not in __samba_dc_obsolete_tls.stderr)
+
+    - name: SAMBA_DC | Verify NetBIOS ports are closed
+      ansible.builtin.command:
+        argv: [ss, -H, -lntu, '( sport = :137 or sport = :138 or sport = :139 )']
+      register: __samba_dc_netbios_listeners
+      changed_when: false
+      failed_when: __samba_dc_netbios_listeners.stdout | length > 0
+
+    - name: SAMBA_DC | Exercise refusal of an unsigned DNS update
+      ansible.builtin.command:
+        argv: [nsupdate, -v]
+        stdin: |
+          server 127.0.0.1
+          zone ad.example.test
+          update add molecule-unsigned.ad.example.test 60 A 192.0.2.123
+          send
+      register: __samba_dc_unsigned_dns_update
+      changed_when: false
+      failed_when: >-
+        __samba_dc_unsigned_dns_update.rc == 0 or
+        'REFUSED' not in (__samba_dc_unsigned_dns_update.stdout + __samba_dc_unsigned_dns_update.stderr)
+
+    - name: SAMBA_DC | Reject anonymous IPC access
+      ansible.builtin.command:
+        argv: [smbclient, '//dc1.ad.example.test/IPC$', -U, '%', -N, -c, quit]
+      register: __samba_dc_anonymous_ipc
+      changed_when: false
+      failed_when: >-
+        __samba_dc_anonymous_ipc.rc == 0 or
+        'NT_STATUS_ACCESS_DENIED' not in __samba_dc_anonymous_ipc.stdout
+
+    - name: SAMBA_DC | Reject unprotected LDAP password authentication
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_facts.python.executable }}"
+          - -c
+          - |
+            import os
+            import ldb
+            from samba.credentials import Credentials
+            from samba.param import LoadParm
+            from samba.samdb import SamDB
+            credentials = Credentials()
+            credentials.set_bind_dn('Administrator@AD.EXAMPLE.TEST')
+            credentials.set_password(os.environ['SAMBA_DC_TEST_PASSWORD'])
+            parameters = LoadParm()
+            parameters.load_default()
+            try:
+                SamDB(url='ldap://dc1.ad.example.test', credentials=credentials, lp=parameters)
+            except ldb.LdbError as error:
+                if error.args[0] != ldb.ERR_STRONG_AUTH_REQUIRED:
+                    raise
+            else:
+                raise RuntimeError('Unprotected LDAP password authentication succeeded')
+      environment:
+        SAMBA_DC_TEST_PASSWORD: "{{ samba_dc_admin_password }}"
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Write rename and remove files through each audited share
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - "//dc1.ad.example.test/{{ __samba_dc_test_share }}"
+          - --use-kerberos=required
+          - -U
+          - Administrator
+          - -c
+          - >-
+            put /etc/hostname molecule-audit.txt;
+            get molecule-audit.txt /dev/null;
+            rename molecule-audit.txt molecule-audit-renamed.txt;
+            del molecule-audit-renamed.txt
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      loop: [sysvol, netlogon]
+      loop_control:
+        loop_var: __samba_dc_test_share
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Verify successful writes renames and deletions were audited
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_facts.python.executable }}"
+          - -c
+          - |
+            import json
+            import re
+            from pathlib import Path
+            audit = Path('/var/log/samba/sysvol_audit.log').read_text()
+            for share in ('sysvol', 'netlogon'):
+                for operation in ('pwrite(?:_send|_recv)?|write', 'pread(?:_send|_recv)?|read|sendfile',
+                                  'renameat', 'unlinkat'):
+                    pattern = rf'VOLUME={share}\|(?:{operation})\|ok\|[^\n]*molecule-audit'
+                    if not re.search(pattern, audit):
+                        raise RuntimeError(f'Missing successful {operation} audit for {share}')
+                if not re.search(rf'PROTOCOL=SMB3_11\|VOLUME={share}\|create_file\|ok\|', audit):
+                    raise RuntimeError(f'Missing SMB 3.1.1 file-open audit for {share}')
+            lines = Path('/var/log/samba/auth_json_audit.log').read_text().splitlines()
+            events = [json.loads(line) for line in lines if line.lstrip().startswith('{')]
+            if not any(event.get('Authorization', {}).get('account') == 'Administrator'
+                       for event in events):
+                raise RuntimeError('Missing successful Administrator authorization audit')
+      changed_when: false
+
+    - name: SAMBA_DC | Create an unprivileged account for the share ACL check
+      jomrr.samba.samba_user:
+        server: dc1.ad.example.test
+        realm: "{{ samba_dc_realm }}"
+        bind_username: Administrator
+        bind_password: "{{ samba_dc_admin_password }}"
+        username: moleculereader
+        password: Molecule-Only-Reader1!
+        state: present
+      no_log: true
+
+    - name: SAMBA_DC | Generate a failed NTLM password authentication
+      ansible.builtin.command:
+        argv: [smbclient, //dc1.ad.example.test/sysvol, --use-kerberos=off, -U, moleculereader, -c, quit]
+      environment:
+        PASSWD: Molecule-Deliberately-Wrong1!
+      register: __samba_dc_failed_authentication
+      changed_when: false
+      failed_when: >-
+        __samba_dc_failed_authentication.rc == 0 or
+        'NT_STATUS_LOGON_FAILURE' not in __samba_dc_failed_authentication.stdout
+      no_log: true
+
+    - name: SAMBA_DC | Exercise Kerberos rejection of an unknown principal
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - //dc1.ad.example.test/sysvol
+          - --use-kerberos=required
+          - -U
+          - molecule-kdc-missing
+          - -c
+          - quit
+      environment:
+        PASSWD: Molecule-Deliberately-Wrong1!
+      register: __samba_dc_failed_kerberos
+      changed_when: false
+      failed_when: __samba_dc_failed_kerberos.rc == 0
+      no_log: true
+
+    - name: SAMBA_DC | Exercise group membership audit events
+      jomrr.samba.samba_group:
+        server: dc1.ad.example.test
+        realm: "{{ samba_dc_realm }}"
+        bind_username: Administrator
+        bind_password: "{{ samba_dc_admin_password }}"
+        name: molecule-audit-group
+        members: [moleculereader]
+        state: present
+      no_log: true
+
+    - name: SAMBA_DC | Create files for the Windows ACL audit check
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - "//dc1.ad.example.test/{{ __samba_dc_test_share }}"
+          - --use-kerberos=required
+          - -U
+          - Administrator
+          - -c
+          - put /etc/hostname molecule-acl.txt
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      loop: [sysvol, netlogon]
+      loop_control:
+        loop_var: __samba_dc_test_share
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Add a read-only ACE through the Windows security interface
+      ansible.builtin.command:
+        argv:
+          - smbcacls
+          - "//dc1.ad.example.test/{{ __samba_dc_test_share }}"
+          - molecule-acl.txt
+          - --use-kerberos=required
+          - -m
+          - SMB3
+          - -U
+          - Administrator
+          - --add
+          - 'ACL:EXAMPLE\moleculereader:ALLOWED/0x0/READ'
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      loop: [sysvol, netlogon]
+      loop_control:
+        loop_var: __samba_dc_test_share
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Remove the ACL audit fixture files
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - "//dc1.ad.example.test/{{ __samba_dc_test_share }}"
+          - --use-kerberos=required
+          - -U
+          - Administrator
+          - -c
+          - del molecule-acl.txt
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      loop: [sysvol, netlogon]
+      loop_control:
+        loop_var: __samba_dc_test_share
+      changed_when: false
+      no_log: true
+
+    - name: SAMBA_DC | Reject share writes from an ordinary domain user
+      ansible.builtin.command:
+        argv:
+          - smbclient
+          - "//dc1.ad.example.test/{{ __samba_dc_test_share }}"
+          - --use-kerberos=required
+          - -U
+          - moleculereader
+          - -c
+          - put /etc/hostname molecule-denied.txt
+      environment:
+        PASSWD: Molecule-Only-Reader1!
+      loop: [sysvol, netlogon]
+      loop_control:
+        loop_var: __samba_dc_test_share
+      register: __samba_dc_denied_write
+      changed_when: false
+      failed_when: "'NT_STATUS_ACCESS_DENIED' not in __samba_dc_denied_write.stdout"
+      no_log: true
+
+    - name: SAMBA_DC | Verify permission directory and authentication audit coverage
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_facts.python.executable }}"
+          - -c
+          - |
+            import json
+            import re
+            from pathlib import Path
+            from samba import is_heimdal_built
+            audit = Path('/var/log/samba/sysvol_audit.log').read_text()
+            for share in ('sysvol', 'netlogon'):
+                pattern = rf'VOLUME={share}\|create_file\|fail[^|]*\|[^\n]*molecule-denied'
+                if not re.search(pattern, audit):
+                    raise RuntimeError(f'Missing denied file creation audit for {share}')
+                acl = rf'VOLUME={share}\|fset_nt_acl\|ok\|[^\n]*molecule-acl.txt \[[^\n]*D:'
+                if not re.search(acl, audit):
+                    raise RuntimeError(f'Missing Windows ACL change and SDDL for {share}')
+            directory = Path('/var/log/samba/dsdb_json_audit.log').read_text()
+            passwords = Path('/var/log/samba/dsdb_password_json_audit.log').read_text()
+            if 'moleculereader' not in directory or 'moleculereader' not in passwords:
+                raise RuntimeError('Missing directory or password creation audit')
+            groups = Path('/var/log/samba/dsdb_group_json_audit.log').read_text()
+            if 'molecule-audit-group' not in groups or 'moleculereader' not in groups:
+                raise RuntimeError('Missing group membership audit')
+            transactions = Path('/var/log/samba/dsdb_transaction_json_audit.log').read_text()
+            if 'commit' not in transactions:
+                raise RuntimeError('Missing directory transaction commit audit')
+            lines = Path('/var/log/samba/auth_json_audit.log').read_text().splitlines()
+            events = [json.loads(line) for line in lines if line.lstrip().startswith('{')]
+            failures = [event.get('Authentication', {}) for event in events]
+            if not any(event.get('clientAccount') == 'moleculereader'
+                       and event.get('status') == 'NT_STATUS_WRONG_PASSWORD' for event in failures):
+                raise RuntimeError('Missing failed password authentication audit')
+            if not any(event.get('clientAccount') == '' for event in failures):
+                raise RuntimeError('Missing anonymous authentication audit')
+            dns = Path('/var/log/samba/dns.log').read_text()
+            if 'Update not allowed for unsigned packet' not in dns:
+                raise RuntimeError('Missing unsigned DNS update refusal audit')
+            kdc_log = 'auth_json_audit.log' if is_heimdal_built() else 'mit_kdc.log'
+            kerberos = Path('/var/log/samba', kdc_log).read_text()
+            if 'molecule-kdc-missing' not in kerberos:
+                raise RuntimeError('Missing rejected Kerberos principal audit')
+      changed_when: false
+
+    - name: SAMBA_DC | Load the platform service name
+      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
+      vars:
+        __samba_dc_platform_files:
+          files:
+            - "{{ ansible_facts.distribution }}.yml"
+            - "{{ ansible_facts.os_family }}.yml"
+          paths:
+            - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
+
+    - name: SAMBA_DC | Verify service enablement
+      ansible.builtin.command:
+        argv: [systemctl, is-enabled, "{{ __samba_dc_service }}"]
+      changed_when: false

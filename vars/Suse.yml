@@ -1,0 +1,19 @@
+---
+# role: samba_dc
+# file: vars/Suse.yml
+
+__samba_dc_packages:
+  - samba-ad-dc
+  - samba-tool
+  - samba-dsdb-modules
+  - samba-python3
+  - "python{{ ansible_facts.python.version.major }}{{ ansible_facts.python.version.minor }}-cryptography"
+  - samba-winbind
+  - krb5-client
+  - krb5-server
+__samba_dc_service: samba-ad-dc
+__samba_dc_standalone_services: [smb, nmb, winbind]
+__samba_dc_config: /etc/samba/smb.conf
+__samba_dc_private_dir: /var/lib/samba/private
+__samba_dc_sysvol_dir: /var/lib/samba/sysvol
+__samba_dc_validate: /usr/bin/testparm --suppress-prompt %s
