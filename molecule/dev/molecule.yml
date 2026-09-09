@@ -30,6 +30,7 @@ provisioner:
   inventory:
     group_vars:
       all:
+        __samba_dc_test_rootless: true
         samba_dc_realm: "AD.EXAMPLE.TEST"
         samba_dc_domain: "EXAMPLE"
         samba_dc_hostname: "dc1"
@@ -69,6 +70,15 @@ scenario:
     - "destroy"
   name: "dev"
 platforms:
+  - name: "samba-dc-almalinux"
+    hostname: "dc1"
+    image: "docker.io/jomrr/molecule-almalinux:latest"
+    pre_build_image: true
+    override_command: false
+    systemd: "true"
+    privileged: true
+    extra_opts:
+      - "--tmpfs=/var/lib/samba:rw,size=1g,mode=0755"
   - name: "samba-dc-debian"
     hostname: "dc1"
     image: "docker.io/jomrr/molecule-debian:latest"

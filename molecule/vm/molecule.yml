@@ -1,6 +1,6 @@
 ---
 # role: samba_dc
-# file: molecule/default/molecule.yml
+# file: molecule/vm/molecule.yml
 
 dependency:
   name: "galaxy"
@@ -8,7 +8,9 @@ dependency:
     requirements-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
     role-file: "${MOLECULE_PROJECT_DIRECTORY}/collections.yml"
 driver:
-  name: "podman"
+  name: "vagrant"
+  provider:
+    name: "libvirt"
 provisioner:
   name: "ansible"
   config_options:
@@ -18,19 +20,19 @@ provisioner:
       allow_world_readable_tmpfiles: true
       callbacks_enabled: "ansible.builtin.default"
       callback_result_format: "yaml"
-      remote_tmp: "/tmp/.ansible/tmp"
+      remote_tmp: "~/.ansible/tmp"
     ssh_connection:
       pipelining: true
   log: true
   playbooks:
     converge: "../resources/playbooks/converge.yml"
-    verify: "../resources/playbooks/verify.yml"
-    prepare: "../resources/playbooks/prepare.yml"
-    side_effect: "../resources/playbooks/side_effect.yml"
+    verify: "../vm/verify.yml"
+    prepare: "../vm/prepare.yml"
+    side_effect: "../vm/side_effect.yml"
   inventory:
     group_vars:
       all:
-        __samba_dc_test_rootless: true
+        __samba_dc_test_rootless: false
         samba_dc_realm: "AD.EXAMPLE.TEST"
         samba_dc_domain: "EXAMPLE"
         samba_dc_hostname: "dc1"
@@ -68,14 +70,25 @@ scenario:
     - "idempotence"
     - "verify"
     - "destroy"
-  name: "default"
+  name: "vm"
 platforms:
-  - name: "samba-dc"
-    hostname: "dc1"
-    image: "docker.io/${uns:-jomrr}/molecule-${img:-fedora}:${tag:-latest}"
-    pre_build_image: true
-    override_command: false
-    systemd: "true"
-    privileged: true
-    extra_opts:
-      - "--tmpfs=/var/lib/samba:rw,size=1g,mode=0755"
+  - name: "samba-dc-vm-fedora"
+    box: "samba-dc-fedora-44"
+    provider_options:
+      storage_pool_name: "${SAMBA_DC_VM_STORAGE_POOL:-default}"
+    box_url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/Fedora-Cloud-Base-Vagrant-libvirt-44-1.7.x86_64.vagrant.libvirt.box"
+    box_download_checksum_type: "sha256"
+    box_download_checksum: "4695d5ef2bfcc882649b98de0c545d04671d2064f6609e7e68e606718c8333dc"
+    memory: 2048
+    cpus: 2
+    config_options:
+      synced_folder: false
+  - name: "samba-dc-vm-almalinux"
+    box: "almalinux/10"
+    provider_options:
+      storage_pool_name: "${SAMBA_DC_VM_STORAGE_POOL:-default}"
+    box_architecture: "amd64"
+    memory: 2048
+    cpus: 2
+    config_options:
+      synced_folder: false

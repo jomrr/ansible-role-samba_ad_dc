@@ -2,8 +2,9 @@
 # role: samba_dc
 # file: molecule/resources/playbooks/prepare.yml
 
-- name: SAMBA_DC | Prepare dedicated domain controller containers
+- name: SAMBA_DC | Prepare dedicated domain controller test instances
   hosts: all
+  become: true
   gather_facts: true
   vars:
     __samba_dc_test_packages:
@@ -16,17 +17,21 @@
       vars:
         __samba_dc_platform_files:
           files:
+            - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
             - "{{ ansible_facts.distribution }}.yml"
             - "{{ ansible_facts.os_family }}.yml"
           paths:
             - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
+
+    - name: SAMBA_DC | Configure package sources before preparing the fixture
+      ansible.builtin.import_tasks: ../../../tasks/repositories.yml
 
     - name: SAMBA_DC | Refresh Debian package metadata
       ansible.builtin.apt:
         update_cache: true
       when: ansible_facts.pkg_mgr == 'apt'
 
-    - name: SAMBA_DC | Install packages for the rootless provisioning fixture and clients
+    - name: SAMBA_DC | Install packages for provisioning and test clients
       ansible.builtin.package:
         name: "{{ __samba_dc_packages + __samba_dc_test_packages[ansible_facts.os_family] }}"
         state: present
@@ -97,6 +102,7 @@
             mode: "0644"
 
     - name: SAMBA_DC | Fit provisioned identities inside the rootless UID namespace
+      when: __samba_dc_test_rootless | bool
       ansible.builtin.replace:
         path: /usr/share/samba/setup/idmap_init.ldif
         regexp: "{{ __samba_dc_idmap_bound.regexp }}"
@@ -110,7 +116,7 @@
         loop_var: __samba_dc_idmap_bound
         label: "{{ __samba_dc_idmap_bound.value }}"
 
-    - name: SAMBA_DC | Resolve the DC to its container address
+    - name: SAMBA_DC | Resolve the DC to its test address
       ansible.builtin.lineinfile:
         path: /etc/hosts
         regexp: ' dc1.ad.example.test '
@@ -120,7 +126,7 @@
     - name: SAMBA_DC | Discover resolver services in the test image
       ansible.builtin.service_facts:
 
-    - name: SAMBA_DC | Release DNS port 53 in the test container
+    - name: SAMBA_DC | Release DNS port 53 in the test instance
       ansible.builtin.systemd_service:
         name: systemd-resolved
         state: stopped

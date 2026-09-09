@@ -50,6 +50,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: samba_dc-almalinux-latest
+            uns: jomrr
+            img: almalinux
+            tag: latest
           - name: samba_dc-debian-latest
             uns: jomrr
             img: debian

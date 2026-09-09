@@ -4,6 +4,7 @@
 
 - name: SAMBA_DC | Verify the running domain controller
   hosts: all
+  become: true
   gather_facts: true
   tasks:
     - name: SAMBA_DC | Query the LDAP discovery record through Samba DNS
@@ -399,6 +400,7 @@
       vars:
         __samba_dc_platform_files:
           files:
+            - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
             - "{{ ansible_facts.distribution }}.yml"
             - "{{ ansible_facts.os_family }}.yml"
           paths:

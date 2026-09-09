@@ -1,0 +1,23 @@
+---
+# role: samba_dc
+# file: vars/AlmaLinux-10-x86_64.yml
+
+__samba_dc_packages:
+  - samba-dc
+  - samba-common-tools
+  - python3-samba
+  - samba-winbind
+__samba_dc_service: samba
+__samba_dc_standalone_services: [smb, nmb, winbind]
+__samba_dc_config: /etc/samba/smb.conf
+__samba_dc_private_dir: /var/lib/samba/private
+__samba_dc_sysvol_dir: /var/lib/samba/sysvol
+__samba_dc_validate: /usr/bin/testparm --suppress-prompt %s
+__samba_dc_repository:
+  name: tis-samba
+  file: tissamba
+  baseurl: https://samba.tranquil.it/redhat10/samba-4.24/
+  key_url: https://samba.tranquil.it/RPM-GPG-KEY-TISSAMBA-10
+  key_file: /etc/pki/rpm-gpg/RPM-GPG-KEY-TISSAMBA-10
+  key_checksum: sha256:05f21f368bdeb01453e37c3af2b8fcabba8986e2ce2b0d0298df6456a0bef60a
+  key_fingerprint: DE4B317D2B02C922A639D02E4B26AE89FAEB9F9D

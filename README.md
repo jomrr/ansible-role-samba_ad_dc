@@ -13,6 +13,7 @@ Establish the first domain controller of a new Active Directory forest using jom
 ### Managed
 
 - Samba AD DC packages and native Python bindings.
+- Tranquil IT Samba 4.24 repository, verified signing key, EPEL, and CRB on AlmaLinux 10 x86_64.
 - Validated smb.conf with SYSVOL and NETLOGON shares.
 - Secure protocol defaults, optional TLS, and authentication, directory, and share audit logging.
 - Initial domain provisioning and installation of the generated Kerberos configuration.
@@ -30,7 +31,7 @@ Establish the first domain controller of a new Active Directory forest using jom
 ## Requirements
 
 - Run with root privileges and gathered facts on a dedicated, unprovisioned host.
-- Debian, Ubuntu, Fedora, or openSUSE Tumbleweed with the distribution's Samba AD DC packages.
+- Debian, Ubuntu, Fedora, or openSUSE Tumbleweed with the distribution's Samba AD DC packages; AlmaLinux 10 x86_64 uses Tranquil IT packages.
 - The system Python used by Ansible must load the distribution's Samba Python bindings.
 - Configure a stable, non-loopback IP address and an FQDN matching samba_dc_hostname and samba_dc_realm.
 - Ensure DNS port 53 is available, including any conflict with systemd-resolved or an existing DNS server.
@@ -41,6 +42,8 @@ Establish the first domain controller of a new Active Directory forest using jom
 
 ```yaml
 collections:
+  - name: ansible.posix
+    version: '>=2.1.0'
   - name: community.crypto
     version: '>=3.0.0'
   - name: community.general
@@ -83,6 +86,8 @@ The following variables are part of the public role interface.
 
 ## Managed Files
 
+- `/etc/yum.repos.d/tissamba.repo` Signed Tranquil IT Samba 4.24 packages on AlmaLinux 10 x86_64.
+- `/etc/pki/rpm-gpg/RPM-GPG-KEY-TISSAMBA-10` Tranquil IT package signing key, verified before import on AlmaLinux 10 x86_64.
 - `/etc/samba/smb.conf` Complete configuration, validated with testparm before installation; previous content is backed up.
 - `/etc/krb5.conf` Copied from Samba's provisioned configuration; previous content is backed up.
 - `/var/lib/samba` Domain databases, secrets, and SYSVOL created by the collection module.
@@ -128,12 +133,16 @@ Configuration changes restart the integrated AD DC service after provisioning an
 - Realm, NetBIOS domain, hostname, function level, and RFC2307 provisioning choices describe the initial domain. Keep them unchanged after provisioning; the collection does not migrate or reconcile an existing domain.
 - The role owns smb.conf and krb5.conf. It is intended for a new dedicated DC, not adoption of an existing Samba installation with custom paths or configuration.
 - Configure samba_dc_dns_forwarders to resolve names outside the AD domain; avoid DNS forwarding loops. The guide's 127.0.0.1:5353 requires a separately configured resolver on that port and is not a universal default.
-- Enterprise Linux distributions without Samba AD DC packages are not supported.
+- AlmaLinux 10 x86_64 installs Samba from the Tranquil IT 4.24 channel, including its native Python bindings. EPEL provides python3-setproctitle; CRB supplies additional dependencies. The repository signing key is checked against a SHA-256 checksum and its OpenPGP fingerprint. Package signature and HTTPS checks stay enabled. Other Enterprise Linux releases and architectures are not supported. A future AlmaLinux latest major release needs its own platform settings and package source before it can be supported.
+- molecule test -s dev runs the five container platforms. The generated CI uses the default container scenario; the vm scenario is local only and must be selected explicitly with molecule test -s vm.
+- The local vm scenario requires an x86_64 host with KVM, working libvirt access, Vagrant, and vagrant-libvirt. In ansible-factory, install the existing optional tooling group with uv sync --locked --group vagrant and use its .ansible/venv/bin tools. The scenario uses the official Fedora 44 libvirt image with a pinned checksum and the official almalinux/10 Vagrant box, with 2 GiB RAM and two vCPUs per VM. Vagrant requires a directory-backed storage pool for its qcow2 overlays; select an existing pool with SAMBA_DC_VM_STORAGE_POOL if the default pool uses LVM.
+- VM verification reuses the DNS, Kerberos, SMB, TLS, and audit tests and checks SELinux Enforcing, file contexts, and Samba access denials. It also reboots the VMs before reconverging and verifying again. The rootless UID namespace workaround is limited to containers.
 
 ## Supported Platforms
 
 | OS Family | Distribution | Version | Container Image |
 | --------- | ------------ | ------- | --------------- |
+| RedHat | AlmaLinux | latest | [jomrr/molecule-almalinux:latest](https://hub.docker.com/r/jomrr/molecule-almalinux) |
 | Debian | Debian | latest | [jomrr/molecule-debian:latest](https://hub.docker.com/r/jomrr/molecule-debian) |
 | RedHat | Fedora | latest | [jomrr/molecule-fedora:latest](https://hub.docker.com/r/jomrr/molecule-fedora) |
 | Suse | OpenSuse Tumbleweed | latest | [jomrr/molecule-opensuse-tumbleweed:latest](https://hub.docker.com/r/jomrr/molecule-opensuse-tumbleweed) |
@@ -187,6 +196,7 @@ samba_dc_tls_enabled: false
 - [Samba smb.conf manual](https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html)
 - [Samba full audit manual](https://www.samba.org/samba/docs/current/man-html/vfs_full_audit.8.html)
 - [GnuTLS priority strings](https://gnutls.org/manual/html_node/Priority-Strings.html)
+- [Tranquil IT: Samba AD on RHEL and derivatives](https://samba.tranquil.it/doc/en/samba_config_server-server_install_samba_redhat.html)
 
 ## Author
 

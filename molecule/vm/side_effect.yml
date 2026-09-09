@@ -1,0 +1,14 @@
+---
+# role: samba_dc
+# file: molecule/vm/side_effect.yml
+
+- name: SAMBA_DC | Exercise the shared service restoration case
+  ansible.builtin.import_playbook: ../resources/playbooks/side_effect.yml
+
+- name: SAMBA_DC | Exercise persistence across VM reboot
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: SAMBA_DC | Reboot the domain controller VM
+      ansible.builtin.reboot:

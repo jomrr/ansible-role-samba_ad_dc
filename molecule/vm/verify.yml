@@ -1,0 +1,41 @@
+---
+# role: samba_dc
+# file: molecule/vm/verify.yml
+
+- name: SAMBA_DC | Run the shared domain controller verification
+  ansible.builtin.import_playbook: ../resources/playbooks/verify.yml
+
+- name: SAMBA_DC | Verify SELinux on the domain controller VM
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: SAMBA_DC | Verify SELinux remains Enforcing
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.selinux.status == 'enabled'
+          - ansible_facts.selinux.mode == 'enforcing'
+          - ansible_facts.selinux.config_mode == 'enforcing'
+        quiet: true
+
+    - name: SAMBA_DC | Verify Samba file contexts match the installed policy
+      ansible.builtin.command:
+        argv:
+          - matchpathcon
+          - -V
+          - /etc/samba/smb.conf
+          - /etc/samba/tls/dc1.key
+          - /var/lib/samba/private/sam.ldb
+          - /var/lib/samba/sysvol
+          - /var/log/samba
+      changed_when: false
+
+    - name: SAMBA_DC | Reject Samba SELinux access denials since VM boot
+      ansible.builtin.command:
+        argv: [ausearch, --message, 'AVC,USER_AVC', --start, boot, --executable, "{{ __samba_dc_test_executable }}", --raw]
+      loop: [/usr/sbin/samba, /usr/sbin/smbd, /usr/sbin/winbindd]
+      loop_control:
+        loop_var: __samba_dc_test_executable
+      register: __samba_dc_selinux_denials
+      changed_when: false
+      failed_when: __samba_dc_selinux_denials.rc != 1

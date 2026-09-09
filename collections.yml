@@ -3,6 +3,8 @@
 # file: collections.yml
 
 collections:
+  - name: ansible.posix
+    version: '>=2.1.0'
   - name: community.crypto
     version: '>=3.0.0'
   - name: community.general

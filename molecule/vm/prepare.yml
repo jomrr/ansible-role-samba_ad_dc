@@ -1,0 +1,59 @@
+---
+# role: samba_dc
+# file: molecule/vm/prepare.yml
+
+- name: SAMBA_DC | Prepare SELinux VM prerequisites
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: SAMBA_DC | Set the VM domain controller hostname
+      ansible.builtin.hostname:
+        name: dc1.ad.example.test
+
+    - name: SAMBA_DC | Install SELinux inspection tools and auditing
+      ansible.builtin.package:
+        name: [audit, policycoreutils-python-utils, python3-libselinux]
+        state: present
+
+    - name: SAMBA_DC | Update the distribution SELinux policy before installing Samba
+      ansible.builtin.dnf:
+        name: [selinux-policy, selinux-policy-targeted]
+        state: latest
+        update_only: true
+
+    - name: SAMBA_DC | Keep the fixture resolver configuration across VM reboots
+      ansible.builtin.copy:
+        dest: /etc/NetworkManager/conf.d/90-molecule-dns.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [main]
+          dns=none
+          rc-manager=unmanaged
+      notify: reload vm network manager
+
+    - name: SAMBA_DC | Enable host auditing in the VM
+      ansible.builtin.systemd_service:
+        name: auditd
+        enabled: true
+        state: started
+
+    - name: SAMBA_DC | Require SELinux Enforcing in the VM fixture
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.selinux.status == 'enabled'
+          - ansible_facts.selinux.mode == 'enforcing'
+          - ansible_facts.selinux.config_mode == 'enforcing'
+        fail_msg: The VM image must boot with SELinux Enforcing.
+
+  handlers:
+    - name: SAMBA_DC | Reload NetworkManager for the VM resolver fixture
+      ansible.builtin.systemd_service:
+        name: NetworkManager
+        state: reloaded
+      listen: reload vm network manager
+
+- name: SAMBA_DC | Prepare the shared domain controller fixture
+  ansible.builtin.import_playbook: ../resources/playbooks/prepare.yml

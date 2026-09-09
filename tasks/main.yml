@@ -7,10 +7,14 @@
   vars:
     __samba_dc_platform_files:
       files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
         - "{{ ansible_facts.distribution }}.yml"
         - "{{ ansible_facts.os_family }}.yml"
       paths:
         - "{{ role_path }}/vars"
+
+- name: SAMBA_DC | Configure domain controller package sources
+  ansible.builtin.import_tasks: repositories.yml
 
 - name: SAMBA_DC | Install domain controller packages
   ansible.builtin.import_tasks: install.yml
