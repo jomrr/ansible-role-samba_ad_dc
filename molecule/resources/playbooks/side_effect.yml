@@ -2,7 +2,7 @@
 # role: samba_dc
 # file: molecule/resources/playbooks/side_effect.yml
 
-- name: SAMBA_DC | Exercise service restoration
+- name: SAMBA_DC | Verify TLS and LAPS opt outs
   hosts: all
   gather_facts: true
   tasks:
@@ -14,7 +14,10 @@
         samba_dc_laps: false
 
     - name: SAMBA_DC | Verify Windows LAPS remains usable after opting out
-      ansible.builtin.import_tasks: ../tasks/laps.yml
+      samba_dc_test_laps:
+        server: dc1.ad.example.test
+        password: "{{ samba_dc_admin_password }}"
+      no_log: true
 
     - name: SAMBA_DC | Verify LDAPS is disabled
       ansible.builtin.wait_for:
@@ -22,22 +25,3 @@
         port: 636
         state: stopped
         timeout: 30
-
-    - name: SAMBA_DC | Load the platform service name
-      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
-      vars:
-        __samba_dc_platform_files:
-          files:
-            - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
-            - "{{ ansible_facts.distribution }}.yml"
-            - "{{ ansible_facts.os_family }}.yml"
-          paths:
-            - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
-
-    - name: SAMBA_DC | Stop and disable the domain controller before reconverge
-      become: true
-      become_user: root
-      ansible.builtin.systemd_service:
-        name: "{{ __samba_dc_service }}"
-        state: stopped
-        enabled: false

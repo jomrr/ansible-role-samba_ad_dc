@@ -48,8 +48,6 @@ domain controller.
 
 ```yaml
 collections:
-  - name: ansible.posix
-    version: '>=2.1.0'
   - name: community.crypto
     version: '>=3.0.0'
   - name: community.general
@@ -495,8 +493,8 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   with 2 GiB RAM and two vCPUs. Vagrant needs a directory-backed pool for qcow2
   overlays; set SAMBA_DC_VM_STORAGE_POOL when the default pool uses LVM.
 - VM tests cover DNS, Kerberos, SMB, TLS, audits, SELinux Enforcing, file
-  contexts, and Samba access denials, then repeat convergence and verification
-  after reboot. The rootless UID workaround applies only to containers.
+  contexts, and Samba access denials, plus TLS and LAPS opt outs. The rootless
+  UID workaround applies only to containers.
 
 ## Supported Platforms
 

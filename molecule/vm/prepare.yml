@@ -19,28 +19,6 @@
         name: [audit, policycoreutils-python-utils, python3-libselinux]
         state: present
 
-    - name: SAMBA_DC | Update the distribution SELinux policy before installing Samba
-      become: true
-      become_user: root
-      ansible.builtin.dnf:
-        name: [selinux-policy, selinux-policy-targeted]
-        state: latest
-        update_only: true
-
-    - name: SAMBA_DC | Keep the fixture resolver configuration across VM reboots
-      become: true
-      become_user: root
-      ansible.builtin.copy:
-        dest: /etc/NetworkManager/conf.d/90-molecule-dns.conf
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          [main]
-          dns=none
-          rc-manager=unmanaged
-      notify: reload vm network manager
-
     - name: SAMBA_DC | Enable host auditing in the VM
       become: true
       become_user: root
@@ -56,15 +34,6 @@
           - ansible_facts.selinux.mode == 'enforcing'
           - ansible_facts.selinux.config_mode == 'enforcing'
         fail_msg: The VM image must boot with SELinux Enforcing.
-
-  handlers:
-    - name: SAMBA_DC | Reload NetworkManager for the VM resolver fixture
-      become: true
-      become_user: root
-      ansible.builtin.systemd_service:
-        name: NetworkManager
-        state: reloaded
-      listen: reload vm network manager
 
 - name: SAMBA_DC | Prepare the shared domain controller fixture
   ansible.builtin.import_playbook: ../resources/playbooks/prepare.yml

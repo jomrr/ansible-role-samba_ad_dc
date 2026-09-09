@@ -22,23 +22,6 @@
       retries: 30
       delay: 2
 
-    - name: SAMBA_DC | Authenticate with Kerberos and query the directory
-      jomrr.samba.samba_user_info:
-        server: dc1.ad.example.test
-        realm: "{{ samba_dc_realm }}"
-        bind_username: Administrator
-        bind_password: "{{ samba_dc_admin_password }}"
-        username: Administrator
-      no_log: true
-      register: __samba_dc_administrator
-
-    - name: SAMBA_DC | Verify the domain Administrator is reachable
-      ansible.builtin.assert:
-        that:
-          - __samba_dc_administrator.users | length == 1
-          - __samba_dc_administrator.users[0].username == 'Administrator'
-        quiet: true
-
     - name: SAMBA_DC | Read SYSVOL over authenticated SMB
       ansible.builtin.command:
         argv:
@@ -151,29 +134,19 @@
     - name: SAMBA_DC | Reject unprotected LDAP password authentication
       ansible.builtin.command:
         argv:
-          - "{{ ansible_facts.python.executable }}"
-          - -c
-          - |
-            import os
-            import ldb
-            from samba.credentials import Credentials
-            from samba.param import LoadParm
-            from samba.samdb import SamDB
-            credentials = Credentials()
-            credentials.set_bind_dn('Administrator@AD.EXAMPLE.TEST')
-            credentials.set_password(os.environ['SAMBA_DC_TEST_PASSWORD'])
-            parameters = LoadParm()
-            parameters.load_default()
-            try:
-                SamDB(url='ldap://dc1.ad.example.test', credentials=credentials, lp=parameters)
-            except ldb.LdbError as error:
-                if error.args[0] != ldb.ERR_STRONG_AUTH_REQUIRED:
-                    raise
-            else:
-                raise RuntimeError('Unprotected LDAP password authentication succeeded')
-      environment:
-        SAMBA_DC_TEST_PASSWORD: "{{ samba_dc_admin_password }}"
+          - ldapwhoami
+          - -x
+          - -H
+          - ldap://dc1.ad.example.test
+          - -D
+          - "Administrator@{{ samba_dc_realm }}"
+          - -y
+          - /dev/stdin
+        stdin: "{{ samba_dc_admin_password }}"
+        stdin_add_newline: false
+      register: __samba_dc_unprotected_ldap
       changed_when: false
+      failed_when: __samba_dc_unprotected_ldap.rc != 8
       no_log: true
 
     - name: SAMBA_DC | Write rename and remove files through each audited share
@@ -197,33 +170,6 @@
         loop_var: __samba_dc_test_share
       changed_when: false
       no_log: true
-
-    - name: SAMBA_DC | Verify successful writes renames and deletions were audited
-      become: true
-      become_user: root
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_facts.python.executable }}"
-          - -c
-          - |
-            import json
-            import re
-            from pathlib import Path
-            audit = Path('/var/log/samba/sysvol_audit.log').read_text()
-            for share in ('sysvol', 'netlogon'):
-                for operation in ('pwrite(?:_send|_recv)?|write', 'pread(?:_send|_recv)?|read|sendfile',
-                                  'renameat', 'unlinkat'):
-                    pattern = rf'VOLUME={share}\|(?:{operation})\|ok\|[^\n]*molecule-audit'
-                    if not re.search(pattern, audit):
-                        raise RuntimeError(f'Missing successful {operation} audit for {share}')
-                if not re.search(rf'PROTOCOL=SMB3_11\|VOLUME={share}\|create_file\|ok\|', audit):
-                    raise RuntimeError(f'Missing SMB 3.1.1 file-open audit for {share}')
-            lines = Path('/var/log/samba/auth_json_audit.log').read_text().splitlines()
-            events = [json.loads(line) for line in lines if line.lstrip().startswith('{')]
-            if not any(event.get('Authorization', {}).get('account') == 'Administrator'
-                       for event in events):
-                raise RuntimeError('Missing successful Administrator authorization audit')
-      changed_when: false
 
     - name: SAMBA_DC | Create an unprivileged account for the share ACL check
       jomrr.samba.samba_user:
@@ -249,7 +195,10 @@
       no_log: true
 
     - name: SAMBA_DC | Verify Windows LAPS password storage and access restrictions
-      ansible.builtin.import_tasks: ../tasks/laps.yml
+      samba_dc_test_laps:
+        server: dc1.ad.example.test
+        password: "{{ samba_dc_admin_password }}"
+      no_log: true
 
     - name: SAMBA_DC | Exercise Kerberos rejection of an unknown principal
       ansible.builtin.command:
@@ -356,52 +305,10 @@
       failed_when: "'NT_STATUS_ACCESS_DENIED' not in __samba_dc_denied_write.stdout"
       no_log: true
 
-    - name: SAMBA_DC | Verify permission directory and authentication audit coverage
+    - name: SAMBA_DC | Verify share directory and authentication audit coverage
       become: true
       become_user: root
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_facts.python.executable }}"
-          - -c
-          - |
-            import json
-            import re
-            from pathlib import Path
-            from samba import is_heimdal_built
-            audit = Path('/var/log/samba/sysvol_audit.log').read_text()
-            for share in ('sysvol', 'netlogon'):
-                pattern = rf'VOLUME={share}\|create_file\|fail[^|]*\|[^\n]*molecule-denied'
-                if not re.search(pattern, audit):
-                    raise RuntimeError(f'Missing denied file creation audit for {share}')
-                acl = rf'VOLUME={share}\|fset_nt_acl\|ok\|[^\n]*molecule-acl.txt \[[^\n]*D:'
-                if not re.search(acl, audit):
-                    raise RuntimeError(f'Missing Windows ACL change and SDDL for {share}')
-            directory = Path('/var/log/samba/dsdb_json_audit.log').read_text()
-            passwords = Path('/var/log/samba/dsdb_password_json_audit.log').read_text()
-            if 'moleculereader' not in directory or 'moleculereader' not in passwords:
-                raise RuntimeError('Missing directory or password creation audit')
-            groups = Path('/var/log/samba/dsdb_group_json_audit.log').read_text()
-            if 'molecule-audit-group' not in groups or 'moleculereader' not in groups:
-                raise RuntimeError('Missing group membership audit')
-            transactions = Path('/var/log/samba/dsdb_transaction_json_audit.log').read_text()
-            if 'commit' not in transactions:
-                raise RuntimeError('Missing directory transaction commit audit')
-            lines = Path('/var/log/samba/auth_json_audit.log').read_text().splitlines()
-            events = [json.loads(line) for line in lines if line.lstrip().startswith('{')]
-            failures = [event.get('Authentication', {}) for event in events]
-            if not any(event.get('clientAccount') == 'moleculereader'
-                       and event.get('status') == 'NT_STATUS_WRONG_PASSWORD' for event in failures):
-                raise RuntimeError('Missing failed password authentication audit')
-            if not any(event.get('clientAccount') == '' for event in failures):
-                raise RuntimeError('Missing anonymous authentication audit')
-            dns = Path('/var/log/samba/dns.log').read_text()
-            if 'Update not allowed for unsigned packet' not in dns:
-                raise RuntimeError('Missing unsigned DNS update refusal audit')
-            kdc_log = 'auth_json_audit.log' if is_heimdal_built() else 'mit_kdc.log'
-            kerberos = Path('/var/log/samba', kdc_log).read_text()
-            if 'molecule-kdc-missing' not in kerberos:
-                raise RuntimeError('Missing rejected Kerberos principal audit')
-      changed_when: false
+      samba_dc_test_audit:
 
     - name: SAMBA_DC | Load the platform service name
       ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"

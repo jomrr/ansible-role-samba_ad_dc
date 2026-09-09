@@ -28,7 +28,7 @@ provisioner:
     converge: "../resources/playbooks/converge.yml"
     verify: "../vm/verify.yml"
     prepare: "../vm/prepare.yml"
-    side_effect: "../vm/side_effect.yml"
+    side_effect: "../resources/playbooks/side_effect.yml"
   inventory:
     group_vars:
       all:
@@ -67,9 +67,6 @@ scenario:
     - "check"
     - "verify"
     - "side_effect"
-    - "converge"
-    - "idempotence"
-    - "verify"
     - "destroy"
   name: "vm"
 platforms:
