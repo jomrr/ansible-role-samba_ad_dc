@@ -25,6 +25,9 @@ samba_dc_function_level: "2016"
 # Enable RFC2307 POSIX attributes during provisioning and their use by the DC.
 samba_dc_use_rfc2307: true
 
+# Prepare the Windows LAPS schema; disabling preserves any existing schema extension.
+samba_dc_laps: false
+
 # Upstream DNS server addresses; an empty list disables external DNS forwarding.
 samba_dc_dns_forwarders: []
 # Example: samba_dc_dns_forwarders: [192.0.2.53, 192.0.2.54]

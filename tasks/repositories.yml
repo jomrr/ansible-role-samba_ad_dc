@@ -2,42 +2,39 @@
 # role: samba_dc
 # file: tasks/repositories.yml
 
-- name: SAMBA_DC | Configure the AlmaLinux AD DC package source
-  when: ansible_facts.distribution == 'AlmaLinux'
-  block:
-    - name: SAMBA_DC | Install EPEL and repository configuration tools
-      ansible.builtin.package:
-        name: [dnf-plugins-core, epel-release]
-        state: present
+- name: SAMBA_DC | Install EPEL and repository configuration tools
+  ansible.builtin.package:
+    name: [dnf-plugins-core, epel-release]
+    state: present
 
-    - name: SAMBA_DC | Enable CRB for Samba dependencies
-      community.general.dnf_config_manager:
-        name: crb
-        state: enabled
+- name: SAMBA_DC | Enable CRB for Samba dependencies
+  community.general.dnf_config_manager:
+    name: crb
+    state: enabled
 
-    - name: SAMBA_DC | Download the verified Tranquil IT signing key
-      ansible.builtin.get_url:
-        url: "{{ __samba_dc_repository.key_url }}"
-        dest: "{{ __samba_dc_repository.key_file }}"
-        checksum: "{{ __samba_dc_repository.key_checksum }}"
-        owner: root
-        group: root
-        mode: "0644"
+- name: SAMBA_DC | Download the verified Tranquil IT signing key
+  ansible.builtin.get_url:
+    url: "{{ __samba_dc_repository.key_url }}"
+    dest: "{{ __samba_dc_repository.key_file }}"
+    checksum: "{{ __samba_dc_repository.key_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
 
-    - name: SAMBA_DC | Trust the Tranquil IT package signing key
-      ansible.builtin.rpm_key:
-        key: "{{ __samba_dc_repository.key_file }}"
-        fingerprint: "{{ __samba_dc_repository.key_fingerprint }}"
-        state: present
+- name: SAMBA_DC | Trust the Tranquil IT package signing key
+  ansible.builtin.rpm_key:
+    key: "{{ __samba_dc_repository.key_file }}"
+    fingerprint: "{{ __samba_dc_repository.key_fingerprint }}"
+    state: present
 
-    - name: SAMBA_DC | Enable signed Tranquil IT Samba packages
-      ansible.builtin.yum_repository:
-        name: "{{ __samba_dc_repository.name }}"
-        file: "{{ __samba_dc_repository.file }}"
-        description: Tranquil IT Samba 4.24 for AlmaLinux 10
-        baseurl: "{{ __samba_dc_repository.baseurl }}"
-        gpgkey: "file://{{ __samba_dc_repository.key_file }}"
-        gpgcheck: true
-        enabled: true
-        sslverify: true
-        mode: "0644"
+- name: SAMBA_DC | Enable signed Tranquil IT Samba packages
+  ansible.builtin.yum_repository:
+    name: "{{ __samba_dc_repository.name }}"
+    file: "{{ __samba_dc_repository.file }}"
+    description: Tranquil IT Samba 4.24 for AlmaLinux 10
+    baseurl: "{{ __samba_dc_repository.baseurl }}"
+    gpgkey: "file://{{ __samba_dc_repository.key_file }}"
+    gpgcheck: true
+    enabled: true
+    sslverify: true
+    mode: "0644"

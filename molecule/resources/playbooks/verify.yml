@@ -245,6 +245,9 @@
         'NT_STATUS_LOGON_FAILURE' not in __samba_dc_failed_authentication.stdout
       no_log: true
 
+    - name: SAMBA_DC | Verify Windows LAPS password storage and access restrictions
+      ansible.builtin.import_tasks: ../tasks/laps.yml
+
     - name: SAMBA_DC | Exercise Kerberos rejection of an unknown principal
       ansible.builtin.command:
         argv:

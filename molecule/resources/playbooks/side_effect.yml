@@ -12,6 +12,10 @@
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
         samba_dc_tls_enabled: false
+        samba_dc_laps: false
+
+    - name: SAMBA_DC | Verify Windows LAPS remains usable after opting out
+      ansible.builtin.import_tasks: ../tasks/laps.yml
 
     - name: SAMBA_DC | Verify LDAPS is disabled
       ansible.builtin.wait_for:

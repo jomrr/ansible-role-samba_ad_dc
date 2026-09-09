@@ -14,13 +14,20 @@
         - "{{ role_path }}/vars"
 
 - name: SAMBA_DC | Configure domain controller package sources
-  ansible.builtin.import_tasks: repositories.yml
+  ansible.builtin.include_tasks: repositories.yml
+  when: ansible_facts.distribution == 'AlmaLinux'
 
 - name: SAMBA_DC | Install domain controller packages
   ansible.builtin.import_tasks: install.yml
 
 - name: SAMBA_DC | Configure and provision the domain
   ansible.builtin.import_tasks: provision.yml
+
+- name: SAMBA_DC | Prepare the Windows LAPS schema
+  samba_dc_laps:
+    configfile: "{{ __samba_dc_config }}"
+  when: samba_dc_laps | bool
+  notify: restart domain controller
 
 - name: SAMBA_DC | Apply pending configuration changes
   ansible.builtin.meta: flush_handlers
