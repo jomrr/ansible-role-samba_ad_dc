@@ -4,25 +4,32 @@
 
 - name: SAMBA_DC | Prepare SELinux VM prerequisites
   hosts: all
-  become: true
   gather_facts: true
   tasks:
     - name: SAMBA_DC | Set the VM domain controller hostname
+      become: true
+      become_user: root
       ansible.builtin.hostname:
         name: dc1.ad.example.test
 
     - name: SAMBA_DC | Install SELinux inspection tools and auditing
+      become: true
+      become_user: root
       ansible.builtin.package:
         name: [audit, policycoreutils-python-utils, python3-libselinux]
         state: present
 
     - name: SAMBA_DC | Update the distribution SELinux policy before installing Samba
+      become: true
+      become_user: root
       ansible.builtin.dnf:
         name: [selinux-policy, selinux-policy-targeted]
         state: latest
         update_only: true
 
     - name: SAMBA_DC | Keep the fixture resolver configuration across VM reboots
+      become: true
+      become_user: root
       ansible.builtin.copy:
         dest: /etc/NetworkManager/conf.d/90-molecule-dns.conf
         owner: root
@@ -35,6 +42,8 @@
       notify: reload vm network manager
 
     - name: SAMBA_DC | Enable host auditing in the VM
+      become: true
+      become_user: root
       ansible.builtin.systemd_service:
         name: auditd
         enabled: true
@@ -50,6 +59,8 @@
 
   handlers:
     - name: SAMBA_DC | Reload NetworkManager for the VM resolver fixture
+      become: true
+      become_user: root
       ansible.builtin.systemd_service:
         name: NetworkManager
         state: reloaded

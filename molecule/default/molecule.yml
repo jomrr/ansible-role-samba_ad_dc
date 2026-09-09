@@ -51,6 +51,8 @@ provisioner:
         samba_dc_tls_certfile: "tls/cert.pem"
         samba_dc_tls_cafile: "tls/ca.pem"
         __samba_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
+  connection_options:
+    ansible_user: "molecule"
 verifier:
   name: "ansible"
 scenario:

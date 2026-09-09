@@ -7,7 +7,6 @@
 
 - name: SAMBA_DC | Verify SELinux on the domain controller VM
   hosts: all
-  become: true
   gather_facts: true
   tasks:
     - name: SAMBA_DC | Verify SELinux remains Enforcing
@@ -19,6 +18,8 @@
         quiet: true
 
     - name: SAMBA_DC | Verify Samba file contexts match the installed policy
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv:
           - matchpathcon
@@ -31,6 +32,8 @@
       changed_when: false
 
     - name: SAMBA_DC | Reject Samba SELinux access denials since VM boot
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv: [ausearch, --message, 'AVC,USER_AVC', --start, boot, --executable, "{{ __samba_dc_test_executable }}", --raw]
       loop: [/usr/sbin/samba, /usr/sbin/smbd, /usr/sbin/winbindd]

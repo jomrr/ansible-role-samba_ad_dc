@@ -4,7 +4,6 @@
 
 - name: SAMBA_DC | Exercise service restoration
   hosts: all
-  become: true
   gather_facts: true
   tasks:
     - name: SAMBA_DC | Exercise the supported TLS opt out
@@ -36,6 +35,8 @@
             - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
 
     - name: SAMBA_DC | Stop and disable the domain controller before reconverge
+      become: true
+      become_user: root
       ansible.builtin.systemd_service:
         name: "{{ __samba_dc_service }}"
         state: stopped

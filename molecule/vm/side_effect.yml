@@ -7,8 +7,9 @@
 
 - name: SAMBA_DC | Exercise persistence across VM reboot
   hosts: all
-  become: true
   gather_facts: false
   tasks:
     - name: SAMBA_DC | Reboot the domain controller VM
+      become: true
+      become_user: root
       ansible.builtin.reboot:

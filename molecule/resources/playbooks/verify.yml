@@ -4,7 +4,6 @@
 
 - name: SAMBA_DC | Verify the running domain controller
   hosts: all
-  become: true
   gather_facts: true
   tasks:
     - name: SAMBA_DC | Query the LDAP discovery record through Samba DNS
@@ -76,6 +75,8 @@
         'NT_STATUS_NOT_SUPPORTED' not in (__samba_dc_obsolete_smb.stdout + __samba_dc_obsolete_smb.stderr)
 
     - name: SAMBA_DC | Verify LDAPS trust and hostname with TLS 1.2 and 1.3
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv:
           - openssl
@@ -198,6 +199,8 @@
       no_log: true
 
     - name: SAMBA_DC | Verify successful writes renames and deletions were audited
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv:
           - "{{ ansible_facts.python.executable }}"
@@ -354,6 +357,8 @@
       no_log: true
 
     - name: SAMBA_DC | Verify permission directory and authentication audit coverage
+      become: true
+      become_user: root
       ansible.builtin.command:
         argv:
           - "{{ ansible_facts.python.executable }}"

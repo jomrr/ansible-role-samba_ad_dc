@@ -3,16 +3,22 @@
 # file: tasks/repositories.yml
 
 - name: SAMBA_DC | Install EPEL and repository configuration tools
+  become: true
+  become_user: root
   ansible.builtin.package:
     name: [dnf-plugins-core, epel-release]
     state: present
 
 - name: SAMBA_DC | Enable CRB for Samba dependencies
+  become: true
+  become_user: root
   community.general.dnf_config_manager:
     name: crb
     state: enabled
 
 - name: SAMBA_DC | Download the verified Tranquil IT signing key
+  become: true
+  become_user: root
   ansible.builtin.get_url:
     url: "{{ __samba_dc_repository.key_url }}"
     dest: "{{ __samba_dc_repository.key_file }}"
@@ -22,12 +28,16 @@
     mode: "0644"
 
 - name: SAMBA_DC | Trust the Tranquil IT package signing key
+  become: true
+  become_user: root
   ansible.builtin.rpm_key:
     key: "{{ __samba_dc_repository.key_file }}"
     fingerprint: "{{ __samba_dc_repository.key_fingerprint }}"
     state: present
 
 - name: SAMBA_DC | Enable signed Tranquil IT Samba packages
+  become: true
+  become_user: root
   ansible.builtin.yum_repository:
     name: "{{ __samba_dc_repository.name }}"
     file: "{{ __samba_dc_repository.file }}"

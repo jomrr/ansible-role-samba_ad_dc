@@ -4,7 +4,6 @@
 
 - name: SAMBA_DC | Prepare dedicated domain controller test instances
   hosts: all
-  become: true
   gather_facts: true
   vars:
     __samba_dc_test_packages:
@@ -28,11 +27,15 @@
       when: ansible_facts.distribution == 'AlmaLinux'
 
     - name: SAMBA_DC | Refresh Debian package metadata
+      become: true
+      become_user: root
       ansible.builtin.apt:
         update_cache: true
       when: ansible_facts.pkg_mgr == 'apt'
 
     - name: SAMBA_DC | Install packages for provisioning and test clients
+      become: true
+      become_user: root
       ansible.builtin.package:
         name: "{{ __samba_dc_packages + __samba_dc_test_packages[ansible_facts.os_family] }}"
         state: present
@@ -43,6 +46,8 @@
       when: samba_dc_tls_certfile == '/etc/samba/tls/dc1.crt'
       block:
         - name: SAMBA_DC | Create the fixture certificate directory
+          become: true
+          become_user: root
           ansible.builtin.file:
             path: /etc/samba/tls
             state: directory
@@ -51,6 +56,8 @@
             mode: "0700"
 
         - name: SAMBA_DC | Generate disposable fixture keys
+          become: true
+          become_user: root
           community.crypto.openssl_privatekey:
             path: "/etc/samba/tls/{{ __samba_dc_test_key }}.key"
             type: RSA
@@ -63,6 +70,8 @@
             loop_var: __samba_dc_test_key
 
         - name: SAMBA_DC | Create the test CA request
+          become: true
+          become_user: root
           community.crypto.openssl_csr:
             path: /etc/samba/tls/ca.csr
             privatekey_path: /etc/samba/tls/ca.key
@@ -74,6 +83,8 @@
             mode: "0644"
 
         - name: SAMBA_DC | Create the disposable CA certificate
+          become: true
+          become_user: root
           community.crypto.x509_certificate:
             path: /etc/samba/tls/ca.crt
             csr_path: /etc/samba/tls/ca.csr
@@ -83,6 +94,8 @@
             mode: "0644"
 
         - name: SAMBA_DC | Create the DC certificate request
+          become: true
+          become_user: root
           community.crypto.openssl_csr:
             path: /etc/samba/tls/dc1.csr
             privatekey_path: /etc/samba/tls/dc1.key
@@ -93,6 +106,8 @@
             mode: "0644"
 
         - name: SAMBA_DC | Issue the DC certificate from the test CA
+          become: true
+          become_user: root
           community.crypto.x509_certificate:
             path: /etc/samba/tls/dc1.crt
             csr_path: /etc/samba/tls/dc1.csr
@@ -103,6 +118,8 @@
             mode: "0644"
 
     - name: SAMBA_DC | Fit provisioned identities inside the rootless UID namespace
+      become: true
+      become_user: root
       when: __samba_dc_test_rootless | bool
       ansible.builtin.replace:
         path: /usr/share/samba/setup/idmap_init.ldif
@@ -118,6 +135,8 @@
         label: "{{ __samba_dc_idmap_bound.value }}"
 
     - name: SAMBA_DC | Resolve the DC to its test address
+      become: true
+      become_user: root
       ansible.builtin.lineinfile:
         path: /etc/hosts
         regexp: ' dc1.ad.example.test '
@@ -128,6 +147,8 @@
       ansible.builtin.service_facts:
 
     - name: SAMBA_DC | Release DNS port 53 in the test instance
+      become: true
+      become_user: root
       ansible.builtin.systemd_service:
         name: systemd-resolved
         state: stopped
@@ -136,6 +157,8 @@
       when: "'systemd-resolved.service' in ansible_facts.services"
 
     - name: SAMBA_DC | Use the local AD DNS service for test clients
+      become: true
+      become_user: root
       ansible.builtin.copy:
         dest: /etc/resolv.conf
         owner: root

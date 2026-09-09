@@ -1,44 +1,48 @@
 # Ansible Role: samba_dc
 
-![GitHub](https://img.shields.io/github/license/jomrr/ansible-role-samba_dc) ![GitHub last commit](https://img.shields.io/github/last-commit/jomrr/ansible-role-samba_dc) ![GitHub issues](https://img.shields.io/github/issues-raw/jomrr/ansible-role-samba_dc) [![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_dc/dev.yml?branch=dev&event=push&label=dev)](https://github.com/jomrr/ansible-role-samba_dc/actions/workflows/dev.yml?query=branch%3Adev) [![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_dc/main.yml?branch=main&event=push&label=main)](https://github.com/jomrr/ansible-role-samba_dc/actions/workflows/main.yml?query=branch%3Amain)
+![GitHub](https://img.shields.io/github/license/jomrr/ansible-role-samba_dc)
+![GitHub last commit](https://img.shields.io/github/last-commit/jomrr/ansible-role-samba_dc)
+![GitHub issues](https://img.shields.io/github/issues-raw/jomrr/ansible-role-samba_dc)
+[![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_dc/dev.yml?branch=dev&event=push&label=dev)](https://github.com/jomrr/ansible-role-samba_dc/actions/workflows/dev.yml?query=branch%3Adev)
+[![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_dc/main.yml?branch=main&event=push&label=main)](https://github.com/jomrr/ansible-role-samba_dc/actions/workflows/main.yml?query=branch%3Amain)
 
-Ansible role for provisioning and running the first Samba Active Directory domain controller.
-
-## Purpose
-
-Establish the first domain controller of a new Active Directory forest using jomrr.samba.samba_provision and Samba's internal DNS backend.
+Ansible role for provisioning and running the first Samba Active Directory
+domain controller.
 
 ## Scope
 
 ### Managed
 
 - Samba AD DC packages and native Python bindings.
-- Tranquil IT Samba 4.24 repository, verified signing key, EPEL, and CRB on AlmaLinux 10 x86_64.
+- Tranquil IT Samba 4.24 repository, verified signing key, EPEL, and CRB on
+  AlmaLinux 10 x86_64.
 - Validated smb.conf with SYSVOL and NETLOGON shares.
-- Secure protocol defaults, optional TLS, and authentication, directory, and share audit logging.
-- Initial domain provisioning and installation of the generated Kerberos configuration.
+- SMB signing, strong LDAP authentication, optional TLS, and authentication,
+  directory, and share auditing.
+- New AD forest provisioning with jomrr.samba.samba_provision, internal DNS, and
+  the generated Kerberos configuration.
 - Optional Windows LAPS schema preparation on the schema FSMO owner.
-- Disabling standalone SMB, NetBIOS and winbind services, and enabling the integrated AD DC service.
+- Disabling standalone SMB, NetBIOS and winbind services, and enabling the
+  integrated AD DC service.
 
 ### Not Managed
 
 - Joining additional DCs, domain migration, demotion, or password rotation.
 - AD users, groups, OUs, and additional DNS objects.
-- LAPS OU permissions, password reader/reset delegation, and Windows client Group Policy.
-- Hostname, IP addressing, resolver configuration, firewall rules, and time synchronization.
-- BIND DNS backends and general-purpose file shares.
-- External certificate issuance, deployment, renewal, and client trust distribution.
-- Central audit collection, archival retention, and protection against privileged log tampering.
+- LAPS OU permissions, password reader/reset delegation, and Windows client
+  Group Policy.
+- BIND DNS backends.
 
 ## Requirements
 
-- Run with root privileges and gathered facts on a dedicated, unprovisioned host.
-- Debian, Ubuntu, Fedora, or openSUSE Tumbleweed with the distribution's Samba AD DC packages; AlmaLinux 10 x86_64 uses an external package repository.
-- The system Python used by Ansible must load the distribution's Samba Python bindings.
-- Configure a stable, non-loopback IP address and an FQDN matching samba_dc_hostname and samba_dc_realm.
-- Ensure DNS port 53 is available, including any conflict with systemd-resolved or an existing DNS server.
-- After provisioning, configure the DC and domain clients to resolve AD records through this DC.
-- Allow Samba AD traffic through the firewall and provide working time synchronization for Kerberos.
+- A dedicated host without an existing Samba domain or custom Samba
+  configuration.
+- Samba AD DC packages and native bindings for the Python interpreter used by
+  Ansible.
+- A stable, non-loopback IP address and an FQDN matching samba_dc_hostname and
+  samba_dc_realm.
+- Available DNS port 53; check for conflicting listeners such as
+  systemd-resolved or another DNS server.
 
 ## Dependencies
 
@@ -56,95 +60,443 @@ collections:
 
 ## Role Variables
 
-The following variables are part of the public role interface.
+### `samba_dc_realm`
 
-| Name | Type | Required | Default | Description |
-| ---- | ---- | -------- | ------- | ----------- |
-| `samba_dc_realm` | `str` | `true` | | Kerberos realm and DNS domain of the new forest; immutable after provisioning. |
-| `samba_dc_domain` | `str` | `true` | | NetBIOS domain name; immutable after provisioning. |
-| `samba_dc_admin_password` | `str` | `true` | | Initial Administrator password supplied through Ansible Vault or a secret store. |
-| `samba_dc_hostname` | `str` | `false` | `{{ ansible_facts.hostname }}` | Short DNS hostname of the DC; must match the host identity and is immutable after provisioning. |
-| `samba_dc_function_level` | `str` | `false` | `2016` | Domain, forest, and DC functional level for initial provisioning; keep unchanged afterwards. |
-| `samba_dc_use_rfc2307` | `bool` | `false` | `True` | Enable RFC2307 POSIX attributes at provision time and their use by the DC. |
-| `samba_dc_laps` | `bool` | `false` | `False` | Prepare the Windows LAPS schema; OU permissions and client policies are configured separately. Disabling preserves existing schema extensions. |
-| `samba_dc_dns_forwarders` | `list` | `false` | [] | Upstream DNS server addresses; an empty list disables external DNS forwarding. |
-| `samba_dc_restrict_anonymous` | `int` | `false` | `2` | Restriction of anonymous SAMR and IPC access; 2 denies anonymous IPC connections. |
-| `samba_dc_server_min_protocol` | `str` | `false` | `SMB3` | Minimum accepted SMB dialect; SMB3 is Samba's alias for SMB3_11 and rejects older dialects. |
-| `samba_dc_server_signing` | `str` | `false` | `mandatory` | SMB signing policy; mandatory requires integrity protection. |
-| `samba_dc_ntlm_auth` | `str` | `false` | `ntlmv2-only` | Accept NTLMv2 fallback or require Kerberos; NTLMv1 is unsupported. |
-| `samba_dc_ldap_require_strong_auth` | `str` | `false` | `yes` | LDAP protection policy; simple binds require TLS and plain SASL requires signing or sealing. |
-| `samba_dc_password_hash_schemes` | `list` | `false` | [] | Additional userPassword hashes for external LDAP synchronization; disabled by default. |
-| `samba_dc_tls_enabled` | `bool` | `false` | `True` | Enable LDAPS and StartTLS; disabling TLS preserves the LDAP strong authentication policy. |
-| `samba_dc_tls_keyfile` | `path` | `false` | `tls/key.pem` | PEM private key on the DC, absolute or relative to Samba's private directory; default is generated by Samba. |
-| `samba_dc_tls_certfile` | `path` | `false` | `tls/cert.pem` | PEM server certificate and intermediate chain on the DC; default is generated by Samba. |
-| `samba_dc_tls_cafile` | `path` | `false` | `tls/ca.pem` | PEM CA bundle on the DC; default is generated by Samba. |
-| `samba_dc_tls_crlfile` | `str` | `false` | `` | Optional existing PEM revocation list on the DC; empty leaves it unconfigured. |
-| `samba_dc_tls_dh_params_file` | `str` | `false` | `` | Optional existing DH parameter file on the DC; empty uses GnuTLS defaults. |
-| `samba_dc_tls_priority` | `str` | `false` | `SECURE128:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2` | GnuTLS cipher policy; defaults to TLS 1.2 and 1.3 with at least 128-bit cipher security. |
-| `samba_dc_log_level` | `str` | `false` | `1 auth_json_audit:5@/var/log/samba/auth_json_audit.log dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log dsdb_password_json_audit:5@/var/log/samba/dsdb_password_json_audit.log dsdb_group_json_audit:5@/var/log/samba/dsdb_group_json_audit.log dsdb_transaction_json_audit:10@/var/log/samba/dsdb_transaction_json_audit.log kerberos:3@/var/log/samba/kerberos.log drs_repl:2@/var/log/samba/drs_repl.log full_audit:1@/var/log/samba/sysvol_audit.log dns:2@/var/log/samba/dns.log` | Samba audit classes and destinations, including authentication, directory changes, and SYSVOL writes. |
-| `samba_dc_max_log_size` | `int` | `false` | `10000` | Maximum size in KiB per Samba log before rotation to one .old file; 0 disables the limit. |
-| `samba_dc_audit_success` | `list` | `false` | - all | Successful VFS operations to audit; all includes reads, ACL changes, and newly supported operations. |
-| `samba_dc_audit_failure` | `list` | `false` | - all | Failed VFS operations to audit; all includes denied reads, ACL changes, and metadata access. |
-| `samba_dc_audit_log_secdesc` | `bool` | `false` | `True` | Record the requested Windows security descriptor in SDDL when clients change ACLs. |
+Type: `str`. Required: `true`.
+
+Kerberos realm and DNS domain of the new forest; immutable after provisioning.
+
+### `samba_dc_domain`
+
+Type: `str`. Required: `true`.
+
+NetBIOS domain name; immutable after provisioning.
+
+### `samba_dc_admin_password`
+
+Type: `str`. Required: `true`.
+
+Initial Administrator password supplied through Ansible Vault or a secret store.
+
+### `samba_dc_hostname`
+
+Type: `str`. Required: `false`.
+
+Short DNS hostname of the DC; must match the host identity and is immutable
+after provisioning.
+
+Default:
+
+```yaml
+samba_dc_hostname: '{{ ansible_facts.hostname }}'
+```
+
+### `samba_dc_function_level`
+
+Type: `str`. Required: `false`.
+
+Domain, forest, and DC functional level for initial provisioning; keep unchanged
+afterwards.
+
+Default:
+
+```yaml
+samba_dc_function_level: '2016'
+```
+
+### `samba_dc_use_rfc2307`
+
+Type: `bool`. Required: `false`.
+
+Enable RFC2307 POSIX attributes at provision time and their use by the DC.
+
+Default:
+
+```yaml
+samba_dc_use_rfc2307: true
+```
+
+### `samba_dc_laps`
+
+Type: `bool`. Required: `false`.
+
+Prepare the Windows LAPS schema; OU permissions and client policies are
+configured separately. Disabling preserves existing schema extensions.
+
+Default:
+
+```yaml
+samba_dc_laps: false
+```
+
+### `samba_dc_dns_forwarders`
+
+Type: `list`. Required: `false`.
+
+Upstream DNS server addresses; an empty list disables external DNS forwarding.
+
+Default:
+
+```yaml
+samba_dc_dns_forwarders: []
+```
+
+### `samba_dc_restrict_anonymous`
+
+Type: `int`. Required: `false`.
+
+Restriction of anonymous SAMR and IPC access; 2 denies anonymous IPC
+connections.
+
+Default:
+
+```yaml
+samba_dc_restrict_anonymous: 2
+```
+
+### `samba_dc_server_min_protocol`
+
+Type: `str`. Required: `false`.
+
+Minimum accepted SMB dialect; SMB3 is Samba's alias for SMB3_11 and rejects
+older dialects.
+
+Default:
+
+```yaml
+samba_dc_server_min_protocol: SMB3
+```
+
+### `samba_dc_server_signing`
+
+Type: `str`. Required: `false`.
+
+SMB signing policy; mandatory requires integrity protection.
+
+Default:
+
+```yaml
+samba_dc_server_signing: mandatory
+```
+
+### `samba_dc_ntlm_auth`
+
+Type: `str`. Required: `false`.
+
+Accept NTLMv2 fallback or require Kerberos; NTLMv1 is unsupported.
+
+Default:
+
+```yaml
+samba_dc_ntlm_auth: ntlmv2-only
+```
+
+### `samba_dc_ldap_require_strong_auth`
+
+Type: `str`. Required: `false`.
+
+LDAP protection policy; simple binds require TLS and plain SASL requires signing
+or sealing.
+
+Default:
+
+```yaml
+samba_dc_ldap_require_strong_auth: 'yes'
+```
+
+### `samba_dc_password_hash_schemes`
+
+Type: `list`. Required: `false`.
+
+Additional userPassword hashes for external LDAP synchronization; disabled by
+default.
+
+Default:
+
+```yaml
+samba_dc_password_hash_schemes: []
+```
+
+### `samba_dc_tls_enabled`
+
+Type: `bool`. Required: `false`.
+
+Enable LDAPS and StartTLS; disabling TLS preserves the LDAP strong
+authentication policy.
+
+Default:
+
+```yaml
+samba_dc_tls_enabled: true
+```
+
+### `samba_dc_tls_keyfile`
+
+Type: `path`. Required: `false`.
+
+PEM private key on the DC, absolute or relative to Samba's private directory;
+default is generated by Samba.
+
+Default:
+
+```yaml
+samba_dc_tls_keyfile: tls/key.pem
+```
+
+### `samba_dc_tls_certfile`
+
+Type: `path`. Required: `false`.
+
+PEM server certificate and intermediate chain on the DC; default is generated by
+Samba.
+
+Default:
+
+```yaml
+samba_dc_tls_certfile: tls/cert.pem
+```
+
+### `samba_dc_tls_cafile`
+
+Type: `path`. Required: `false`.
+
+PEM CA bundle on the DC; default is generated by Samba.
+
+Default:
+
+```yaml
+samba_dc_tls_cafile: tls/ca.pem
+```
+
+### `samba_dc_tls_crlfile`
+
+Type: `str`. Required: `false`.
+
+Optional existing PEM revocation list on the DC; empty leaves it unconfigured.
+
+Default:
+
+```yaml
+samba_dc_tls_crlfile: ''
+```
+
+### `samba_dc_tls_dh_params_file`
+
+Type: `str`. Required: `false`.
+
+Optional existing DH parameter file on the DC; empty uses GnuTLS defaults.
+
+Default:
+
+```yaml
+samba_dc_tls_dh_params_file: ''
+```
+
+### `samba_dc_tls_priority`
+
+Type: `str`. Required: `false`.
+
+GnuTLS cipher policy; defaults to TLS 1.2 and 1.3 with at least 128-bit cipher
+security.
+
+Default:
+
+```yaml
+samba_dc_tls_priority: SECURE128:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2
+```
+
+### `samba_dc_log_level`
+
+Type: `str`. Required: `false`.
+
+Samba audit classes and destinations, including authentication, directory
+changes, and SYSVOL writes.
+
+Default:
+
+```yaml
+samba_dc_log_level: 1 auth_json_audit:5@/var/log/samba/auth_json_audit.log dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log
+  dsdb_password_json_audit:5@/var/log/samba/dsdb_password_json_audit.log dsdb_group_json_audit:5@/var/log/samba/dsdb_group_json_audit.log
+  dsdb_transaction_json_audit:10@/var/log/samba/dsdb_transaction_json_audit.log
+  kerberos:3@/var/log/samba/kerberos.log drs_repl:2@/var/log/samba/drs_repl.log
+  full_audit:1@/var/log/samba/sysvol_audit.log dns:2@/var/log/samba/dns.log
+```
+
+### `samba_dc_max_log_size`
+
+Type: `int`. Required: `false`.
+
+Maximum size in KiB per Samba log before rotation to one .old file; 0 disables
+the limit.
+
+Default:
+
+```yaml
+samba_dc_max_log_size: 10000
+```
+
+### `samba_dc_audit_success`
+
+Type: `list`. Required: `false`.
+
+Successful VFS operations to audit; all includes reads, ACL changes, and newly
+supported operations.
+
+Default:
+
+```yaml
+samba_dc_audit_success:
+  - all
+```
+
+### `samba_dc_audit_failure`
+
+Type: `list`. Required: `false`.
+
+Failed VFS operations to audit; all includes denied reads, ACL changes, and
+metadata access.
+
+Default:
+
+```yaml
+samba_dc_audit_failure:
+  - all
+```
+
+### `samba_dc_audit_log_secdesc`
+
+Type: `bool`. Required: `false`.
+
+Record the requested Windows security descriptor in SDDL when clients change
+ACLs.
+
+Default:
+
+```yaml
+samba_dc_audit_log_secdesc: true
+```
 
 ## Managed Files
 
-- `/etc/yum.repos.d/tissamba.repo` External repository supplying signed Samba 4.24 AD DC packages on AlmaLinux 10 x86_64.
-- `/etc/pki/rpm-gpg/RPM-GPG-KEY-TISSAMBA-10` Repository signing key used to verify package authenticity on AlmaLinux 10 x86_64.
-- `/etc/samba/smb.conf` Complete configuration, validated with testparm before installation; previous content is backed up.
-- `/etc/krb5.conf` Copied from Samba's provisioned configuration; previous content is backed up.
-- `/var/lib/samba` Domain databases, secrets, and SYSVOL created by the collection module.
-- `/var/log/samba` Root-only directory for Samba logs, including authentication and SYSVOL audit logs.
+- `/etc/yum.repos.d/tissamba.repo` Signed Samba 4.24 AD DC packages for
+  AlmaLinux 10 x86_64.
+- `/etc/pki/rpm-gpg/RPM-GPG-KEY-TISSAMBA-10` Package signing key for the
+  AlmaLinux repository.
+- `/etc/samba/smb.conf` Complete configuration; validated with testparm and
+  backed up before replacement.
+- `/etc/krb5.conf` Provisioned Kerberos configuration; the existing file is
+  backed up.
+- `/var/lib/samba` Domain databases, secrets, and SYSVOL.
+- `/var/log/samba` Root-only Samba logs, including authentication and SYSVOL
+  audits.
 
 ## Check Mode
 
-Check mode is supported on an already provisioned host.
-
-- A clean host cannot complete a dry run because packages, the database, and krb5.conf do not yet exist.
-- On a provisioned DC, LAPS schema preparation reports pending changes without modifying the directory.
+Check mode is supported after provisioning, including LAPS schema changes. A
+clean host cannot complete a dry run because packages, the AD database, and
+krb5.conf do not yet exist.
 
 ## Service Behavior
 
-Configuration or LAPS schema changes restart the integrated AD DC service after provisioning and Kerberos setup.
-
-### Handlers
-
-- restart domain controller
+Changes to smb.conf or the LAPS schema restart the AD DC service.
 
 ## Security Notes
 
-- Supply samba_dc_admin_password through Ansible Vault or a secret store; provisioning is protected with no_log.
-- The initial Administrator password is not rotated by subsequent runs.
-- Windows LAPS is opt-in with samba_dc_laps: true. Password attributes use the Microsoft schema's confidential, never-value-audit, and RODC-filtered flags (searchFlags 904); expiration time remains readable without password read permission. No domain-wide SELF or password reader permissions are granted.
-- Disable Windows LAPS password encryption because encrypted LAPS backups are not supported by the Samba setup covered by this role. Passwords are therefore stored as confidential JSON in AD, not as encrypted LAPS payloads. Protect DC databases and backups and delegate access only to selected groups and OUs. Schema preparation alone does not provide Windows client password rotation, encrypted backups, DSRM management, or rollback detection.
-- Defaults deny anonymous IPC access, require SMB 3.1.1 and SMB signatures, reject NTLMv1, and require TLS for LDAP simple binds or signing/sealing for SASL on port 389. NetBIOS (including the integrated nbt service) and printing are disabled.
-- samba_dc_server_min_protocol defaults to SMB3, Samba's alias for SMB3_11. This is a minimum, not only a preference during negotiation: SMB 2.x, 3.0, and 3.0.2 clients are rejected by default. The existing explicit dialect choices remain available for deployments requiring older clients.
-- TLS is enabled by default and can be disabled with samba_dc_tls_enabled: false. LDAP strong authentication remains enabled when TLS is disabled; simple password binds are then unavailable.
-- All TLS paths are optional. Their defaults use Samba's generated self-signed certificates under /var/lib/samba/private/tls. These do not provide client trust automatically. For production, supply existing CA-issued certificates with the DC FQDN in the subjectAltName and configure client trust. Samba generates its default credentials on first startup; the role does not issue or renew external certificates.
-- Custom TLS files must already exist on the DC. Supply a matching PEM RSA key, server certificate with intermediate chain, and CA bundle through samba_dc_tls_keyfile, samba_dc_tls_certfile, and samba_dc_tls_cafile. Keep the unencrypted private key root-owned with mode 0600 and its directory protected. Paths may be absolute or relative to Samba's private directory.
-- After replacing certificate content at an unchanged path, the certificate deployment workflow must restart the DC service. Changing a TLS path through the role notifies its restart handler.
-- The default TLS priority allows TLS 1.2 and 1.3 and uses GnuTLS SECURE128 to retain interoperability with common RSA certificates and 128-bit cipher suites. A stricter samba_dc_tls_priority can be selected for a compatible PKI and client fleet.
-- CRLs and custom DH parameters remain optional existing files. The canonical Samba parameter is tls dh params file. CRL configuration does not replace certificate renewal or client revocation checking.
-- Extra userPassword hashes are disabled by default to avoid storing additional password-derived secrets. Enable CryptSHA256 or CryptSHA512 only when an external LDAP integration requires those hash formats.
-- JSON authentication and authorization events use level 5, including failures, successful logons, Kerberos service access, and anonymous sessions. Directory, group, and password changes use level 5. Transaction auditing uses level 10 for commits as well as rollbacks and commit failures; correlate transaction identifiers before treating a directory change as persisted.
-- DNS level 2 records update requests and refused unsigned updates in /var/log/samba/dns.log. DRS level 2 records replication diagnostics, including completed GetNCChanges cycles and secret-replication decisions, in /var/log/samba/drs_repl.log. These are diagnostic messages with limited request context, not Windows event 4662 or complete read auditing.
-- SYSVOL and NETLOGON log all successful and failed VFS operations, including connections, reads, content changes, truncation, server-side copies, deletions, ACL/owner changes, metadata changes, links, and DFS modifications. The native all selector also covers new operations such as rename_stream without referencing removed operation names such as audit_file on Samba 4.24. Full audit runs before dfs_samba4 and acl_xattr to capture the requested Windows ACL and final result, with SDDL enabled by default.
-- Share audit events go directly to /var/log/samba/sysvol_audit.log using Samba's file logger, so a separate syslog daemon and local7 routing are not required. The prefix includes IP, user, dialect, and share; direct SMB connections on port 445 do not supply the NetBIOS machine name.
-- Samba rotates its debug and JSON audit logs at samba_dc_max_log_size KiB to one .old file. Anonymous sessions and full VFS auditing can generate substantial volume and I/O overhead, including every read and normal filesystem probes. Forward logs externally for durable retention and monitor rotation and disk usage. Explicit samba_dc_audit_success/failure lists can reduce volume when a narrower event policy is intended; their operation names must be supported by the installed Samba version.
-- MIT Kerberos builds additionally write ticket issuance and failures to /var/log/samba/mit_kdc.log using Samba's provisioned kdc.conf; these native KDC logs need separate collection and rotation and are not covered by max log size. The MIT plugin does not emit the same JSON KDC events as Heimdal.
-- This is service audit coverage, not a complete host audit. Local root access to the AD database or SYSVOL, smb.conf changes, service stops, firewall activity, and log tampering require host auditing and external monitoring. LDAP search/read auditing and individual DNS queries are not provided by the configured change-audit classes. DRS diagnostics do not replace DCSync detection and alerting. No Windows Security Event Log equivalence is implied.
+- LAPS password attributes use the confidential, never-value-audit, and
+  RODC-filtered flags (searchFlags 904); expiration time remains readable
+  without password read permission. The role grants no domain-wide SELF or
+  password reader permissions.
+- Disable Windows LAPS password encryption: this Samba setup stores passwords as
+  confidential JSON in AD. Encrypted backups, DSRM management, and rollback
+  detection are unsupported. Configure Windows client password rotation through
+  Group Policy as shown below.
+- Defaults deny anonymous IPC access, require SMB signatures, and reject NTLMv1.
+  samba_dc_server_min_protocol uses SMB3, Samba's alias for SMB3_11, rejecting
+  SMB 2.x, 3.0, and 3.0.2. Select an explicit dialect when older clients are
+  required. NetBIOS, including the integrated nbt service, and printing are
+  disabled.
+- LDAP simple binds require TLS; SASL on port 389 requires signing or sealing.
+  TLS is enabled by default. With `samba_dc_tls_enabled: false`, simple binds
+  are unavailable and SASL still requires signing or sealing.
+- Without custom TLS paths, Samba creates self-signed certificates in
+  /var/lib/samba/private/tls on first startup. For trusted TLS, provide
+  CA-issued certificates with the DC FQDN in subjectAltName and distribute CA
+  trust to clients.
+- Custom TLS files must exist on the DC: a matching unencrypted PEM RSA key
+  (samba_dc_tls_keyfile), server certificate with intermediate chain
+  (samba_dc_tls_certfile), and CA bundle (samba_dc_tls_cafile). Keep the key
+  root-owned with mode 0600 in a protected directory. Paths may be absolute or
+  relative to Samba's private directory.
+- Replacing a certificate at the same path requires a DC restart. Changing a TLS
+  path through the role triggers that restart.
+- TLS 1.2 and 1.3 use GnuTLS SECURE128 for compatibility with RSA certificates
+  and 128-bit cipher suites.
+- CRLs and DH parameter files are optional and must already exist on the DC. DH
+  parameters map to Samba's `tls dh params file`.
+- Extra userPassword hashes are disabled to avoid storing additional
+  password-derived secrets. Enable CryptSHA256 or CryptSHA512 only for external
+  LDAP integrations that require them.
+- JSON level 5 records authentication and authorization failures and successes,
+  Kerberos service access, anonymous sessions, and directory, group, and
+  password changes. Transaction level 10 records commits, rollbacks, and commit
+  failures; correlate transaction IDs to identify committed directory changes.
+- DNS level 2 records update requests and refused unsigned updates in
+  /var/log/samba/dns.log. DRS level 2 records completed GetNCChanges cycles and
+  secret-replication decisions in /var/log/samba/drs_repl.log, with limited
+  request context.
+- SYSVOL and NETLOGON audit successful and failed VFS operations: connections,
+  reads, writes, truncation, server-side copies, deletion, ACL/owner and
+  metadata changes, links, and DFS modifications. The `all` selector includes
+  new operations such as rename_stream and avoids removed names such as
+  audit_file on Samba 4.24. Full audit precedes dfs_samba4 and acl_xattr to
+  record the requested Windows ACL and final result, with SDDL enabled.
+- Share audits use Samba's file logger at /var/log/samba/sysvol_audit.log. The
+  prefix records IP, user, dialect, and share. SMB connections on port 445 do
+  not supply a NetBIOS machine name.
+- Samba rotates debug and JSON audit logs at samba_dc_max_log_size KiB to one
+  .old file. Anonymous sessions and full VFS auditing include every read and
+  filesystem probe, increasing log volume and I/O. Restrict
+  samba_dc_audit_success and samba_dc_audit_failure to reduce volume; operation
+  names must match the installed Samba version.
+- MIT Kerberos builds log ticket issuance and failures to
+  /var/log/samba/mit_kdc.log through the provisioned kdc.conf. Samba's max log
+  size does not apply to this file.
+- LDAP searches/reads and individual DNS queries are not audited.
 
 ## Operational Notes
 
-- samba_dc_laps defaults to false and leaves the schema untouched. Setting it to true creates or reconciles the seven msLAPS-* attributes, the encrypted-password property set, and their membership in the computer class using a role-local module and the installed Samba bindings. Legacy ms-Mcs-* LAPS is not configured. The module uses the actual schema for idempotence and enables schema updates only in its own connection.
-- LAPS schema extensions are permanent and replicate throughout the forest. Back up an existing domain before enabling this feature. Setting samba_dc_laps back to false stops schema management; it does not remove schema attributes, stored passwords, OU permissions, or client policies. Changes must run on the schema FSMO owner. The presence of msLAPS-CurrentPasswordVersion does not enable Windows Server 2025 features.
-- Realm, NetBIOS domain, hostname, function level, and RFC2307 provisioning choices describe the initial domain. Keep them unchanged after provisioning; the collection does not migrate or reconcile an existing domain.
-- The role owns smb.conf and krb5.conf. It is intended for a new dedicated DC, not adoption of an existing Samba installation with custom paths or configuration.
-- Configure samba_dc_dns_forwarders to resolve names outside the AD domain; avoid DNS forwarding loops. Loopback forwarders require a separately configured local resolver listening on the specified port.
-- AlmaLinux 10 x86_64 uses Tranquil IT's tis-samba 4.24 repository to obtain AD DC packages and their native Python bindings. EPEL provides python3-setproctitle; CRB supplies additional dependencies. The repository signing key is checked against a SHA-256 checksum and its OpenPGP fingerprint. Package signature and HTTPS checks stay enabled. Other Enterprise Linux releases and architectures are not supported. A future AlmaLinux latest major release needs its own platform settings and package source before it can be supported.
-- molecule test -s dev runs the five container platforms. The generated CI uses the default container scenario; the vm scenario is local only and must be selected explicitly with molecule test -s vm.
-- The local vm scenario requires an x86_64 host with KVM, working libvirt access, Vagrant, and vagrant-libvirt. In ansible-factory, install the existing optional tooling group with uv sync --locked --group vagrant and use its .ansible/venv/bin tools. The scenario uses the official Fedora 44 libvirt image with a pinned checksum and the official almalinux/10 Vagrant box, with 2 GiB RAM and two vCPUs per VM. Vagrant requires a directory-backed storage pool for its qcow2 overlays; select an existing pool with SAMBA_DC_VM_STORAGE_POOL if the default pool uses LVM.
-- VM verification reuses the DNS, Kerberos, SMB, TLS, and audit tests and checks SELinux Enforcing, file contexts, and Samba access denials. It also reboots the VMs before reconverging and verifying again. The rootless UID namespace workaround is limited to containers.
+- Enable samba_dc_laps on the schema FSMO owner to create or reconcile the seven
+  `msLAPS-*` attributes, the encrypted-password property set, and computer-class
+  membership using native Samba bindings. Schema updates are enabled only for
+  that connection. Legacy `ms-Mcs-*` LAPS is not configured.
+- LAPS schema extensions are permanent and replicate forest-wide; back up the
+  domain before enabling them. Disabling samba_dc_laps stops schema management
+  and preserves attributes, passwords, OU permissions, and client policies.
+  msLAPS-CurrentPasswordVersion does not enable Windows Server 2025 features.
+- Realm, NetBIOS domain, hostname, functional level, and RFC2307 provisioning
+  settings are fixed after initial provisioning; existing domains are not
+  migrated or reconciled.
+- Configure samba_dc_dns_forwarders for external DNS names and avoid forwarding
+  loops. Loopback forwarders require a separate local resolver on the specified
+  port.
+- AlmaLinux 10 x86_64 uses Tranquil IT's tis-samba 4.24 repository for AD DC
+  packages and native Python bindings. EPEL supplies python3-setproctitle; CRB
+  supplies additional dependencies. The signing key is checked by SHA-256
+  checksum and OpenPGP fingerprint; package signature and HTTPS verification are
+  enabled. Other Enterprise Linux versions and architectures are unsupported; an
+  AlmaLinux image tagged latest must still use major version 10.
+- `molecule test -s dev` tests all five container platforms. CI uses the default
+  container scenario. Run the local VM scenario explicitly with `molecule test
+  -s vm`.
+- VM tests require x86_64, KVM, libvirt access, Vagrant, and vagrant-libvirt. In
+  ansible-factory, install the tooling with `uv sync --locked --group vagrant`
+  and use .ansible/venv/bin. The fixtures use the official Fedora 44 libvirt
+  image with a pinned checksum and the official almalinux/10 Vagrant box, each
+  with 2 GiB RAM and two vCPUs. Vagrant needs a directory-backed pool for qcow2
+  overlays; set SAMBA_DC_VM_STORAGE_POOL when the default pool uses LVM.
+- VM tests cover DNS, Kerberos, SMB, TLS, audits, SELinux Enforcing, file
+  contexts, and Samba access denials, then repeat convergence and verification
+  after reboot. The rootless UID workaround applies only to containers.
 
 ## Supported Platforms
 
@@ -160,13 +512,10 @@ Configuration or LAPS schema changes restart the integrated AD DC service after 
 
 ### Provision a new domain
 
-Prepare host identity, networking, time synchronization, and DNS port availability before applying the role.
-
 ```yaml
 ---
 - name: SAMBA_DC | Provision the first domain controller
   hosts: dc1
-  become: true
   gather_facts: true
   roles:
     - role: jomrr.samba_dc
@@ -180,8 +529,6 @@ Prepare host identity, networking, time synchronization, and DNS port availabili
 
 ### Use existing PKI certificates
 
-Deploy the certificate files beforehand and distribute CA trust to clients.
-
 ```yaml
 samba_dc_tls_keyfile: /etc/samba/tls/dc1.key
 samba_dc_tls_certfile: /etc/samba/tls/dc1.crt
@@ -190,32 +537,31 @@ samba_dc_tls_cafile: /etc/samba/tls/ca.crt
 
 ### Disable TLS
 
-Use protected SASL authentication over LDAP; LDAPS and LDAP simple binds are unavailable.
-
 ```yaml
 samba_dc_tls_enabled: false
 ```
 
 ### Prepare Windows LAPS
 
-Enable schema preparation on the DC, then delegate permissions on each selected workstation OU
-from a Windows administrative session with the LAPS PowerShell module:
+After enabling schema preparation, delegate permissions per workstation OU
+from Windows with the LAPS PowerShell module:
 
 ```powershell
 Import-Module LAPS
 $ou = "OU=Workstations,DC=ad,DC=example,DC=com"
 Set-LapsADComputerSelfPermission -Identity $ou
-Set-LapsADReadPasswordPermission -Identity $ou -AllowedPrincipals "EXAMPLE\LAPS-Readers"
-Set-LapsADResetPasswordPermission -Identity $ou -AllowedPrincipals "EXAMPLE\LAPS-Resetters"
+Set-LapsADReadPasswordPermission -Identity $ou `
+  -AllowedPrincipals "EXAMPLE\LAPS-Readers"
+Set-LapsADResetPasswordPermission -Identity $ou `
+  -AllowedPrincipals "EXAMPLE\LAPS-Resetters"
 Find-LapsADExtendedRights -Identity $ou
 ```
 
-Use existing groups approved for those permissions and review inherited extended rights.
-Link a Windows LAPS GPO to that OU: set the password backup directory to Active Directory,
-disable password encryption because encrypted backups are not supported by this setup, and configure
-password settings and the local account to manage. Apply the policy on a client with `gpupdate /force` and verify
-password retrieval with `Get-LapsADPassword -Identity <computer>` as an authorized reader.
-The role prepares the directory; it does not perform these Windows-side steps.
+Use approved groups and review inherited extended rights. Link a Windows
+LAPS GPO to the OU with Active Directory as the backup directory and password
+encryption disabled. Configure password settings and the local account,
+apply `gpupdate /force`, and verify retrieval with
+`Get-LapsADPassword -Identity <computer>` as an authorized reader.
 
 ```yaml
 samba_dc_laps: true
