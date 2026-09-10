@@ -19,8 +19,8 @@ argument_specs:
         type: str
         required: true
         no_log: true
-        description: Initial Administrator password supplied through Ansible Vault or a
-          secret store.
+        description: Administrator password for provisioning and directory settings, supplied
+          through a secret store.
       samba_dc_hostname:
         type: str
         default: '{{ ansible_facts.hostname }}'
@@ -52,6 +52,124 @@ argument_specs:
         default: []
         description: Upstream DNS server addresses; an empty list disables external DNS
           forwarding.
+      samba_dc_dns_reserved_names:
+        type: list
+        elements: str
+        default:
+          - wpad
+          - isatap
+        description: DNS names reserved with administrator-owned loopback A records; an
+          empty list stops management.
+      samba_dc_rpc_dynamic_port_range:
+        type: str
+        default: 49152-65535
+        description: Dynamic RPC server port range; firewall rules must match.
+      samba_dc_kdc_supported_enctypes:
+        type: list
+        elements: str
+        default:
+          - aes128-cts-hmac-sha1-96
+          - aes256-cts-hmac-sha1-96
+        description: Encryption types accepted by the KDC; defaults exclude RC4.
+      samba_dc_kdc_default_domain_supported_enctypes:
+        type: list
+        elements: str
+        default:
+          - aes128-cts-hmac-sha1-96
+          - aes256-cts-hmac-sha1-96
+        description: Encryption types for accounts without an explicit encryption-type value.
+      samba_dc_password_policy:
+        type: dict
+        default: {}
+        options:
+          minimum_length:
+            type: int
+            description: Minimum password length in characters.
+          history_length:
+            type: int
+            description: Number of previous passwords that cannot be reused.
+          minimum_age_days:
+            type: int
+            description: Minimum password age in days; 0 permits immediate changes.
+          maximum_age_days:
+            type: int
+            description: Maximum password age in days; 0 disables expiration.
+          lockout_threshold:
+            type: int
+            description: Failed sign-ins before account lockout; 0 disables lockout.
+          lockout_duration_minutes:
+            type: int
+            description: Account lockout duration in minutes; 0 requires administrator unlock.
+          lockout_window_minutes:
+            type: int
+            description: Minutes before the failed sign-in counter is reset.
+          complexity:
+            type: bool
+            description: Require password complexity.
+          reversible_encryption:
+            type: bool
+            description: Store passwords using reversible encryption.
+        description: Domain password and lockout settings; unspecified values remain unchanged.
+      samba_dc_password_settings:
+        type: list
+        elements: dict
+        default: []
+        description: Fine-grained password policies; item settings override the configured
+          domain password settings.
+        options:
+          name:
+            type: str
+            required: true
+            description: PSO name.
+          precedence:
+            type: int
+            description: Priority, lowest first; required for present policies.
+          applies_to:
+            type: list
+            elements: str
+            default: []
+            description: Exact set of users and global security groups, identified by account
+              name or DN.
+          settings:
+            type: dict
+            default: {}
+            options:
+              minimum_length:
+                type: int
+                description: Minimum password length in characters.
+              history_length:
+                type: int
+                description: Number of previous passwords that cannot be reused.
+              minimum_age_days:
+                type: int
+                description: Minimum password age in days; 0 permits immediate changes.
+              maximum_age_days:
+                type: int
+                description: Maximum password age in days; 0 disables expiration.
+              lockout_threshold:
+                type: int
+                description: Failed sign-ins before account lockout; 0 disables lockout.
+              lockout_duration_minutes:
+                type: int
+                description: Account lockout duration in minutes; 0 requires administrator
+                  unlock.
+              lockout_window_minutes:
+                type: int
+                description: Minutes before the failed sign-in counter is reset.
+              complexity:
+                type: bool
+                description: Require password complexity.
+              reversible_encryption:
+                type: bool
+                description: Store passwords using reversible encryption.
+            description: Overrides of the configured domain password settings.
+          state:
+            type: str
+            choices:
+              - present
+              - absent
+            default: present
+            description: Whether the PSO exists.
       samba_dc_restrict_anonymous:
         type: int
         default: 2

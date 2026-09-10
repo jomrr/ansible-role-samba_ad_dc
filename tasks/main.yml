@@ -42,3 +42,6 @@
     masked: false
     enabled: true
     state: started
+
+- name: SAMBA_DC | Configure domain DNS reservations and password policies
+  ansible.builtin.import_tasks: directory.yml

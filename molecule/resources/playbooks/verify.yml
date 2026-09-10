@@ -37,6 +37,14 @@
       changed_when: false
       no_log: true
 
+    - name: SAMBA_DC | Reach the replication service through dynamic RPC
+      ansible.builtin.command:
+        argv: [samba-tool, drs, showrepl, dc1.ad.example.test, --use-kerberos=required, -U, Administrator, --json]
+      environment:
+        PASSWD: "{{ samba_dc_admin_password }}"
+      changed_when: false
+      no_log: true
+
     - name: SAMBA_DC | Reject SMB dialects older than SMB 3.1.1
       ansible.builtin.command:
         argv:
@@ -180,6 +188,14 @@
         username: moleculereader
         password: Molecule-Only-Reader1!
         state: present
+      no_log: true
+
+    - name: SAMBA_DC | Verify DNS reservations Kerberos and password rules
+      samba_dc_test_directory:
+        server: dc1.ad.example.test
+        realm: "{{ samba_dc_realm }}"
+        bind_username: Administrator
+        bind_password: "{{ samba_dc_admin_password }}"
       no_log: true
 
     - name: SAMBA_DC | Generate a failed NTLM password authentication

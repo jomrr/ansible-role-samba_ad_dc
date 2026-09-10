@@ -21,6 +21,8 @@ domain controller.
   directory, and share auditing.
 - New AD forest provisioning with jomrr.samba.samba_provision, internal DNS, and
   the generated Kerberos configuration.
+- Reserved DNS names, domain password settings, and fine-grained password
+  policies.
 - Optional Windows LAPS schema preparation on the schema FSMO owner.
 - Disabling standalone SMB, NetBIOS and winbind services, and enabling the
   integrated AD DC service.
@@ -28,7 +30,8 @@ domain controller.
 ### Not Managed
 
 - Joining additional DCs, domain migration, demotion, or password rotation.
-- AD users, groups, OUs, and additional DNS objects.
+- AD users, groups, OUs, and DNS objects other than the configured reserved
+  names.
 - LAPS OU permissions, password reader/reset delegation, and Windows client
   Group Policy.
 - BIND DNS backends.
@@ -74,7 +77,8 @@ NetBIOS domain name; immutable after provisioning.
 
 Type: `str`. Required: `true`.
 
-Initial Administrator password supplied through Ansible Vault or a secret store.
+Administrator password for provisioning and directory settings, supplied through
+a secret store.
 
 ### `samba_dc_hostname`
 
@@ -137,6 +141,86 @@ Default:
 
 ```yaml
 samba_dc_dns_forwarders: []
+```
+
+### `samba_dc_dns_reserved_names`
+
+Type: `list`. Required: `false`.
+
+DNS names reserved with administrator-owned loopback A records; an empty list
+stops management.
+
+Default:
+
+```yaml
+samba_dc_dns_reserved_names:
+  - wpad
+  - isatap
+```
+
+### `samba_dc_rpc_dynamic_port_range`
+
+Type: `str`. Required: `false`.
+
+Dynamic RPC server port range; firewall rules must match.
+
+Default:
+
+```yaml
+samba_dc_rpc_dynamic_port_range: 49152-65535
+```
+
+### `samba_dc_kdc_supported_enctypes`
+
+Type: `list`. Required: `false`.
+
+Encryption types accepted by the KDC; defaults exclude RC4.
+
+Default:
+
+```yaml
+samba_dc_kdc_supported_enctypes:
+  - aes128-cts-hmac-sha1-96
+  - aes256-cts-hmac-sha1-96
+```
+
+### `samba_dc_kdc_default_domain_supported_enctypes`
+
+Type: `list`. Required: `false`.
+
+Encryption types for accounts without an explicit encryption-type value.
+
+Default:
+
+```yaml
+samba_dc_kdc_default_domain_supported_enctypes:
+  - aes128-cts-hmac-sha1-96
+  - aes256-cts-hmac-sha1-96
+```
+
+### `samba_dc_password_policy`
+
+Type: `dict`. Required: `false`.
+
+Domain password and lockout settings; unspecified values remain unchanged.
+
+Default:
+
+```yaml
+samba_dc_password_policy: {}
+```
+
+### `samba_dc_password_settings`
+
+Type: `list`. Required: `false`.
+
+Fine-grained password policies; item settings override the configured domain
+password settings.
+
+Default:
+
+```yaml
+samba_dc_password_settings: []
 ```
 
 ### `samba_dc_restrict_anonymous`
@@ -431,6 +515,13 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   and 128-bit cipher suites.
 - CRLs and DH parameter files are optional and must already exist on the DC. DH
   parameters map to Samba's `tls dh params file`.
+- The KDC accepts AES128 and AES256 by default, including for accounts without
+  an explicit encryption-type value. Existing service accounts and keytabs must
+  contain AES keys.
+- The role reserves wpad and isatap as administrator-owned A records pointing to
+  127.0.0.1. Configure samba_dc_dns_reserved_names to select the names; removing
+  a name stops management and preserves the record. Existing record ownership
+  and ACLs are not changed.
 - Extra userPassword hashes are disabled to avoid storing additional
   password-derived secrets. Enable CryptSHA256 or CryptSHA512 only for external
   LDAP integrations that require them.
@@ -474,6 +565,18 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
 - Realm, NetBIOS domain, hostname, functional level, and RFC2307 provisioning
   settings are fixed after initial provisioning; existing domains are not
   migrated or reconciled.
+- Directory settings authenticate as Administrator using samba_dc_admin_password
+  after the DC starts. Update the supplied secret when that account's password
+  changes.
+- samba_dc_password_policy manages only the specified domain settings. PSO item
+  settings override those configured values; other fields are copied from the
+  domain when a PSO is created and retained on subsequent runs. applies_to is
+  the exact set of assigned users or global security groups. Use state: absent
+  to delete a PSO; removing it from the list stops management. Check the
+  effective policy with `samba-tool domain passwordsettings pso show-user
+  <username>`.
+- Align firewall rules with samba_dc_rpc_dynamic_port_range when narrowing the
+  dynamic RPC range.
 - Configure samba_dc_dns_forwarders for external DNS names and avoid forwarding
   loops. Loopback forwarders require a separate local resolver on the specified
   port.
@@ -525,6 +628,28 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
 
 ```
 
+### Set domain and administrator password rules
+
+```yaml
+samba_dc_password_policy:
+  minimum_length: 12
+  history_length: 24
+  complexity: true
+  reversible_encryption: false
+samba_dc_password_settings:
+  - name: domain_admins
+    precedence: 10
+    applies_to: [Domain Admins]
+    settings:
+      minimum_length: 16
+```
+
+### Narrow the dynamic RPC range
+
+```yaml
+samba_dc_rpc_dynamic_port_range: 50000-55000
+```
+
 ### Use existing PKI certificates
 
 ```yaml
@@ -567,6 +692,7 @@ samba_dc_laps: true
 
 ## References
 
+- [Tranquil IT: Samba AD password policies](https://samba.tranquil.it/doc/en/samba_advanced_methods-samba_password_policies.html)
 - [Tranquil IT: Configure Windows LAPS for Samba AD](https://samba.tranquil.it/doc/en/samba_advanced_methods-samba_configure_laps.html)
 - [Microsoft: Windows LAPS schema reference](https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-technical-reference)
 - [jomrr.samba collection](https://github.com/jomrr/ansible-collection-samba)

@@ -7,8 +7,8 @@
   gather_facts: true
   vars:
     __samba_dc_test_packages:
-      Debian: [smbclient, dnsutils, ldap-utils, openssl, python3-cryptography]
-      RedHat: [samba-client, bind-utils, openldap-clients, openssl, python3-cryptography]
+      Debian: [smbclient, dnsutils, krb5-user, ldap-utils, openssl, python3-cryptography]
+      RedHat: [samba-client, bind-utils, krb5-workstation, openldap-clients, openssl, python3-cryptography]
       Suse: [samba-client, bind-utils, openldap2-client, openssl]
   tasks:
     - name: SAMBA_DC | Load platform package names
