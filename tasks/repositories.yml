@@ -6,14 +6,14 @@
   become: true
   become_user: root
   ansible.builtin.package:
-    name: [dnf-plugins-core, epel-release]
+    name: "{{ __samba_dc_repository.packages }}"
     state: present
 
 - name: SAMBA_DC | Enable CRB for Samba dependencies
   become: true
   become_user: root
   community.general.dnf_config_manager:
-    name: crb
+    name: "{{ __samba_dc_repository.dependency_repository }}"
     state: enabled
 
 - name: SAMBA_DC | Download the verified Tranquil IT signing key
@@ -41,7 +41,7 @@
   ansible.builtin.yum_repository:
     name: "{{ __samba_dc_repository.name }}"
     file: "{{ __samba_dc_repository.file }}"
-    description: Tranquil IT Samba 4.24 for AlmaLinux 10
+    description: "{{ __samba_dc_repository.description }}"
     baseurl: "{{ __samba_dc_repository.baseurl }}"
     gpgkey: "file://{{ __samba_dc_repository.key_file }}"
     gpgcheck: true

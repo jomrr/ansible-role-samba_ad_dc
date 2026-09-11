@@ -5,6 +5,17 @@
 
 from __future__ import annotations
 
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.samba_dc_password_policy import (
+    reconcile_pso,
+    run_module,
+    settings_argument_spec,
+)
+
+from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
+    connection_argument_spec,
+)
+
 DOCUMENTATION = r"""
 module: samba_dc_password_settings
 short_description: Manage a fine-grained password settings object
@@ -86,17 +97,6 @@ applies_to:
   type: list
   elements: str
 """
-
-
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.samba_dc_password_policy import (
-    reconcile_pso,
-    run_module,
-    settings_argument_spec,
-)
-from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
-    connection_argument_spec,
-)
 
 
 def main() -> None:

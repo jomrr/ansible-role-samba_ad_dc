@@ -78,6 +78,159 @@ argument_specs:
           - aes128-cts-hmac-sha1-96
           - aes256-cts-hmac-sha1-96
         description: Encryption types for accounts without an explicit encryption-type value.
+      samba_dc_ous:
+        type: list
+        elements: dict
+        default: []
+        description: Organizational units in parent-before-child order; deletion uses reverse
+          order and requires empty OUs.
+        options:
+          name:
+            type: str
+            required: true
+            description: Object name.
+          path:
+            type: str
+            required: true
+            description: Parent container DN; must exist before the object is managed.
+          description:
+            type: str
+            description: Directory object description; omitted leaves it unchanged.
+          state:
+            type: str
+            default: present
+            choices:
+              - present
+              - absent
+            description: Whether the object exists; absent explicitly deletes it.
+      samba_dc_users:
+        type: list
+        elements: dict
+        default: []
+        description: Domain user accounts; omitted entries are left unmanaged.
+        options:
+          username:
+            type: str
+            required: true
+            description: User logon name (sAMAccountName).
+          given_name:
+            type: str
+            description: Given name.
+          surname:
+            type: str
+            description: Surname.
+          display_name:
+            type: str
+            description: Display name.
+          email:
+            type: str
+            description: Email address.
+          description:
+            type: str
+            description: Directory object description; omitted leaves it unchanged.
+          uid_number:
+            type: int
+            description: RFC2307 user ID.
+          gid_number:
+            type: int
+            description: RFC2307 group ID.
+          unix_home_directory:
+            type: str
+            description: RFC2307 home directory.
+          login_shell:
+            type: str
+            description: RFC2307 login shell.
+          gecos:
+            type: str
+            description: RFC2307 GECOS field.
+          enabled:
+            type: bool
+            default: true
+            description: Whether the user account is enabled.
+          password:
+            type: str
+            description: Initial account password; required for creation and supplied through
+              a secret store.
+            no_log: true
+          update_password:
+            type: str
+            choices:
+              - on_create
+              - always
+            description: Override samba_dc_user_update_password for this account.
+          path:
+            type: str
+            description: Parent container DN; must exist before the object is managed.
+          state:
+            type: str
+            default: present
+            choices:
+              - present
+              - absent
+            description: Whether the object exists; absent explicitly deletes it.
+      samba_dc_groups:
+        type: list
+        elements: dict
+        default: []
+        description: Domain groups and optional memberships; all groups are created before
+          resolving nested memberships.
+        options:
+          name:
+            type: str
+            required: true
+            description: Object name.
+          scope:
+            type: str
+            default: global
+            choices:
+              - global
+              - domain_local
+              - universal
+            description: Group scope.
+          category:
+            type: str
+            default: security
+            choices:
+              - security
+              - distribution
+            description: Security or distribution group.
+          description:
+            type: str
+            description: Directory object description; omitted leaves it unchanged.
+          gid_number:
+            type: int
+            description: RFC2307 group ID.
+          members:
+            type: list
+            elements: str
+            description: Member account names; omitted leaves membership unmanaged, an empty
+              list is managed.
+          members_purge:
+            type: bool
+            description: Override samba_dc_group_members_purge for this group.
+          path:
+            type: str
+            description: Parent container DN; must exist before the object is managed.
+          state:
+            type: str
+            default: present
+            choices:
+              - present
+              - absent
+            description: Whether the object exists; absent explicitly deletes it.
+      samba_dc_user_update_password:
+        type: str
+        default: on_create
+        choices:
+          - on_create
+          - always
+        description: User password update policy; always intentionally changes passwords
+          on every run. Overridable per user.
+      samba_dc_group_members_purge:
+        type: bool
+        default: false
+        description: Remove unlisted group members when members is supplied; overridable
+          per group.
       samba_dc_password_policy:
         type: dict
         default: {}

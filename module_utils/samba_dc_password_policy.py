@@ -43,7 +43,7 @@ INTERVALS = {
 }
 PASSWORD_FLAGS = {"complexity": 1, "reversible_encryption": 16}
 NEVER = -(1 << 63)
-Settings = dict[str, int]
+Settings = dict[str, int | float]
 
 
 def settings_argument_spec() -> dict[str, dict[str, str]]:
@@ -69,7 +69,8 @@ def read_settings(record: Any, *, pso: bool = False) -> Settings:
             result[name] = value.upper() == "TRUE"
         elif name in INTERVALS:
             ticks = int(value)
-            result[name] = 0 if ticks == NEVER else -ticks // INTERVALS[name]
+            whole, remainder = divmod(-ticks, INTERVALS[name])
+            result[name] = 0 if ticks == NEVER else whole + remainder / INTERVALS[name]
         else:
             result[name] = int(value)
     if not pso:
@@ -100,11 +101,13 @@ def encode_settings(
     attributes = PSO_ATTRIBUTES if pso else DOMAIN_ATTRIBUTES
     result = {}
     for name, attribute in attributes.items():
-        value = settings[name]
+        value = settings.get(name)
+        if value is None:
+            continue
         if name in PASSWORD_FLAGS:
             encoded = "TRUE" if value else "FALSE"
         elif name in INTERVALS:
-            ticks = -value * INTERVALS[name]
+            ticks = -int(value) * INTERVALS[name]
             if value == 0 and (
                 name == "maximum_age_days" or (not pso and name.startswith("lockout_"))
             ):
@@ -113,13 +116,34 @@ def encode_settings(
         else:
             encoded = str(value)
         result[attribute] = [encoded]
-    if not pso:
+    if not pso and any(settings.get(name) is not None for name in PASSWORD_FLAGS):
         for name, bit in PASSWORD_FLAGS.items():
+            if settings.get(name) is None:
+                continue
             password_flags = (
                 password_flags | bit if settings[name] else password_flags & ~bit
             )
         result["pwdProperties"] = [str(password_flags)]
     return result
+
+
+def inherited_pso_attributes(domain: Any) -> dict[str, list[str]]:
+    """Copy domain defaults to a new PSO without rounding relative timestamps."""
+    attributes = {
+        PSO_ATTRIBUTES[name]: attribute_values(domain, attribute)
+        for name, attribute in DOMAIN_ATTRIBUTES.items()
+    }
+    flags = int(attribute_values(domain, "pwdProperties")[0])
+    attributes.update(
+        encode_settings(
+            {name: bool(flags & bit) for name, bit in PASSWORD_FLAGS.items()}, pso=True
+        )
+    )
+    for name in ("lockout_duration_minutes", "lockout_window_minutes"):
+        attribute = PSO_ATTRIBUTES[name]
+        if attributes[attribute] == [str(NEVER)]:
+            attributes[attribute] = ["0"]
+    return attributes
 
 
 class PasswordPolicyStore:
@@ -193,7 +217,8 @@ def reconcile_domain(samdb: Any, params: dict[str, Any], check_mode: bool) -> di
     current = store.domain()
     desired = merge_settings(read_settings(current), params["settings"])
     attributes = encode_settings(
-        desired, password_flags=int(attribute_values(current, "pwdProperties")[0])
+        params["settings"],
+        password_flags=int(attribute_values(current, "pwdProperties")[0]),
     )
     changed = store.write(current.dn, attributes, current, check_mode)
     return {"changed": changed, "dn": str(current.dn), "settings": desired}
@@ -215,13 +240,13 @@ def reconcile_pso(samdb: Any, params: dict[str, Any], check_mode: bool) -> dict:
         if current is not None and not check_mode:
             samdb.delete(dn)
         return {"changed": current is not None, "dn": str(dn), "state": "absent"}
-    baseline = (
-        read_settings(store.domain())
-        if current is None
-        else read_settings(current, pso=True)
+    baseline = store.domain() if current is None else current
+    desired = merge_settings(
+        read_settings(baseline, pso=current is not None), params["settings"]
     )
-    desired = merge_settings(baseline, params["settings"])
-    attributes = encode_settings(desired, pso=True)
+    attributes = encode_settings(params["settings"], pso=True)
+    if current is None:
+        attributes = inherited_pso_attributes(baseline) | attributes
     subjects = store.subjects(params["applies_to"])
     attributes["msDS-PasswordSettingsPrecedence"] = [str(params["precedence"])]
     attributes["msDS-PSOAppliesTo"] = subjects

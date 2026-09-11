@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
     connect_samdb,
     connection_argument_spec,

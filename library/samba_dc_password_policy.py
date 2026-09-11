@@ -5,6 +5,17 @@
 
 from __future__ import annotations
 
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.samba_dc_password_policy import (
+    reconcile_domain,
+    run_module,
+    settings_argument_spec,
+)
+
+from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
+    connection_argument_spec,
+)
+
 DOCUMENTATION = r"""
 module: samba_dc_password_policy
 short_description: Manage the domain password policy
@@ -45,17 +56,6 @@ settings:
   returned: when the policy is present
   type: dict
 """
-
-
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.samba_dc_password_policy import (
-    reconcile_domain,
-    run_module,
-    settings_argument_spec,
-)
-from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
-    connection_argument_spec,
-)
 
 
 def main() -> None:

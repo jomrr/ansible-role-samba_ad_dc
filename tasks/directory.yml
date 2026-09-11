@@ -4,10 +4,6 @@
 
 - name: SAMBA_DC | Reserve DNS names against client registration
   jomrr.samba.samba_dns_record:
-    server: "{{ samba_dc_hostname }}.{{ samba_dc_realm | lower }}"
-    realm: "{{ samba_dc_realm | upper }}"
-    bind_username: Administrator
-    bind_password: "{{ samba_dc_admin_password }}"
     zone: "{{ samba_dc_realm | lower }}"
     name: "{{ __samba_dc_reserved_name }}"
     type: A
@@ -19,18 +15,28 @@
 
 - name: SAMBA_DC | Configure the domain password policy
   samba_dc_password_policy:
-    server: "{{ samba_dc_hostname }}.{{ samba_dc_realm | lower }}"
-    realm: "{{ samba_dc_realm | upper }}"
-    bind_username: Administrator
-    bind_password: "{{ samba_dc_admin_password }}"
     settings: "{{ samba_dc_password_policy }}"
+
+- name: SAMBA_DC | Create organizational units in parent-before-child order
+  jomrr.samba.samba_ou:
+    name: "{{ __samba_dc_ou.name }}"
+    path: "{{ __samba_dc_ou.path }}"
+    description: "{{ __samba_dc_ou.description | default(omit) }}"
+    state: present
+  loop: "{{ samba_dc_ous }}"
+  loop_control:
+    loop_var: __samba_dc_ou
+    label: "{{ __samba_dc_ou.name }}"
+  when: (__samba_dc_ou.state | default('present')) == 'present'
+
+- name: SAMBA_DC | Manage domain users
+  ansible.builtin.import_tasks: users.yml
+
+- name: SAMBA_DC | Manage domain groups and memberships
+  ansible.builtin.import_tasks: groups.yml
 
 - name: SAMBA_DC | Configure fine-grained password policies
   samba_dc_password_settings:
-    server: "{{ samba_dc_hostname }}.{{ samba_dc_realm | lower }}"
-    realm: "{{ samba_dc_realm | upper }}"
-    bind_username: Administrator
-    bind_password: "{{ samba_dc_admin_password }}"
     name: "{{ __samba_dc_password_settings.name }}"
     precedence: "{{ __samba_dc_password_settings.precedence | default(omit) }}"
     applies_to: "{{ __samba_dc_password_settings.applies_to | default([]) }}"
@@ -40,3 +46,14 @@
   loop_control:
     loop_var: __samba_dc_password_settings
     label: "{{ __samba_dc_password_settings.name }}"
+
+- name: SAMBA_DC | Remove empty organizational units in child-before-parent order
+  jomrr.samba.samba_ou:
+    name: "{{ __samba_dc_ou.name }}"
+    path: "{{ __samba_dc_ou.path }}"
+    state: absent
+  loop: "{{ samba_dc_ous | reverse | list }}"
+  loop_control:
+    loop_var: __samba_dc_ou
+    label: "{{ __samba_dc_ou.name }}"
+  when: (__samba_dc_ou.state | default('present')) == 'absent'

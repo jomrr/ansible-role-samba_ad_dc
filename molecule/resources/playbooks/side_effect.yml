@@ -2,16 +2,98 @@
 # role: samba_dc
 # file: molecule/resources/playbooks/side_effect.yml
 
-- name: SAMBA_DC | Verify TLS and LAPS opt outs
+- name: SAMBA_DC | Verify updates deletions and TLS and LAPS opt outs
   hosts: all
   gather_facts: true
+  module_defaults:
+    samba_dc_test_objects:
+      server: dc1.ad.example.test
+      realm: "{{ samba_dc_realm }}"
+      bind_username: Administrator
+      bind_password: "{{ samba_dc_admin_password }}"
   tasks:
-    - name: SAMBA_DC | Exercise the supported TLS opt out
+    - name: SAMBA_DC | Seed precise unmanaged policy values and an extra group member
+      samba_dc_test_objects:
+        phase: seed
+
+    - name: SAMBA_DC | Preview updates and deletions in check mode
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
-      vars:
+        apply:
+          check_mode: true
+      vars: &__samba_dc_updated_inputs
         samba_dc_tls_enabled: false
         samba_dc_laps: false
+        samba_dc_group_members_purge: true
+        samba_dc_password_policy:
+          minimum_length: 13
+          history_length: 25
+          complexity: true
+          reversible_encryption: false
+        samba_dc_ous:
+          - name: Molecule
+            path: DC=ad,DC=example,DC=test
+          - name: Staff
+            path: OU=Molecule,DC=ad,DC=example,DC=test
+            description: Updated staff OU
+          - name: Groups
+            path: OU=Molecule,DC=ad,DC=example,DC=test
+          - name: Retired
+            path: OU=Molecule,DC=ad,DC=example,DC=test
+            state: absent
+          - name: Children
+            path: OU=Retired,OU=Molecule,DC=ad,DC=example,DC=test
+            state: absent
+        samba_dc_users:
+          - username: molecule-managed
+            path: OU=Molecule,DC=ad,DC=example,DC=test
+            display_name: Updated managed user
+            enabled: false
+          - username: molecule-retired
+            state: absent
+        samba_dc_groups:
+          - name: molecule-parent-group
+            path: OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test
+            members:
+              - molecule-managed-group
+            members_purge: false
+          - name: molecule-managed-group
+            path: OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test
+            members:
+              - moleculereader
+            description: Updated managed group
+          - name: molecule-scope-group
+            path: OU=Molecule,DC=ad,DC=example,DC=test
+            scope: domain_local
+            category: security
+            members:
+              - moleculereader
+          - name: molecule-retired-group
+            state: absent
+        samba_dc_password_settings:
+          - name: molecule-managed
+            precedence: 5
+            applies_to:
+              - molecule-managed
+            settings:
+              minimum_length: 18
+          - name: molecule-inherited
+            precedence: 40
+          - name: molecule-delete
+            state: absent
+
+    - name: SAMBA_DC | Verify check mode preserved the seeded directory state
+      samba_dc_test_objects:
+        phase: seeded
+
+    - name: SAMBA_DC | Apply updates deletions and the supported TLS and LAPS opt outs
+      ansible.builtin.include_role:
+        name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+      vars: *__samba_dc_updated_inputs
+
+    - name: SAMBA_DC | Verify updated objects deleted objects and exact policy values
+      samba_dc_test_objects:
+        phase: updated
 
     - name: SAMBA_DC | Verify Windows LAPS remains usable after opting out
       samba_dc_test_laps:

@@ -14,6 +14,9 @@ __samba_dc_private_dir: /var/lib/samba/private
 __samba_dc_sysvol_dir: /var/lib/samba/sysvol
 __samba_dc_validate: /usr/bin/testparm --suppress-prompt %s
 __samba_dc_repository:
+  packages: [dnf-plugins-core, epel-release]
+  dependency_repository: crb
+  description: Tranquil IT Samba 4.24 for AlmaLinux 10
   name: tis-samba
   file: tissamba
   baseurl: https://samba.tranquil.it/redhat10/samba-4.24/

@@ -179,16 +179,13 @@
       changed_when: false
       no_log: true
 
-    - name: SAMBA_DC | Create an unprivileged account for the share ACL check
-      jomrr.samba.samba_user:
+    - name: SAMBA_DC | Verify managed directory objects and nested memberships
+      samba_dc_test_objects:
         server: dc1.ad.example.test
         realm: "{{ samba_dc_realm }}"
         bind_username: Administrator
         bind_password: "{{ samba_dc_admin_password }}"
-        username: moleculereader
-        password: Molecule-Only-Reader1!
-        state: present
-      no_log: true
+        phase: initial
 
     - name: SAMBA_DC | Verify DNS reservations Kerberos and password rules
       samba_dc_test_directory:
@@ -231,17 +228,6 @@
       register: __samba_dc_failed_kerberos
       changed_when: false
       failed_when: __samba_dc_failed_kerberos.rc == 0
-      no_log: true
-
-    - name: SAMBA_DC | Exercise group membership audit events
-      jomrr.samba.samba_group:
-        server: dc1.ad.example.test
-        realm: "{{ samba_dc_realm }}"
-        bind_username: Administrator
-        bind_password: "{{ samba_dc_admin_password }}"
-        name: molecule-audit-group
-        members: [moleculereader]
-        state: present
       no_log: true
 
     - name: SAMBA_DC | Create files for the Windows ACL audit check

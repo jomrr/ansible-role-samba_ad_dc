@@ -23,6 +23,8 @@ domain controller.
   the generated Kerberos configuration.
 - Reserved DNS names, domain password settings, and fine-grained password
   policies.
+- Domain users, organizational units, groups, and additive or authoritative
+  group memberships.
 - Optional Windows LAPS schema preparation on the schema FSMO owner.
 - Disabling standalone SMB, NetBIOS and winbind services, and enabling the
   integrated AD DC service.
@@ -30,8 +32,7 @@ domain controller.
 ### Not Managed
 
 - Joining additional DCs, domain migration, demotion, or password rotation.
-- AD users, groups, OUs, and DNS objects other than the configured reserved
-  names.
+- DNS objects other than the configured reserved names.
 - LAPS OU permissions, password reader/reset delegation, and Windows client
   Group Policy.
 - BIND DNS backends.
@@ -196,6 +197,69 @@ Default:
 samba_dc_kdc_default_domain_supported_enctypes:
   - aes128-cts-hmac-sha1-96
   - aes256-cts-hmac-sha1-96
+```
+
+### `samba_dc_ous`
+
+Type: `list`. Required: `false`.
+
+Organizational units in parent-before-child order; deletion uses reverse order
+and requires empty OUs.
+
+Default:
+
+```yaml
+samba_dc_ous: []
+```
+
+### `samba_dc_users`
+
+Type: `list`. Required: `false`.
+
+Domain user accounts; omitted entries are left unmanaged.
+
+Default:
+
+```yaml
+samba_dc_users: []
+```
+
+### `samba_dc_groups`
+
+Type: `list`. Required: `false`.
+
+Domain groups and optional memberships; all groups are created before resolving
+nested memberships.
+
+Default:
+
+```yaml
+samba_dc_groups: []
+```
+
+### `samba_dc_user_update_password`
+
+Type: `str`. Required: `false`.
+
+User password update policy; always intentionally changes passwords on every
+run. Overridable per user.
+
+Default:
+
+```yaml
+samba_dc_user_update_password: on_create
+```
+
+### `samba_dc_group_members_purge`
+
+Type: `bool`. Required: `false`.
+
+Remove unlisted group members when members is supplied; overridable per group.
+
+Default:
+
+```yaml
+samba_dc_group_members_purge: false
 ```
 
 ### `samba_dc_password_policy`
@@ -554,6 +618,26 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
 
 ## Operational Notes
 
+- samba_dc_ous, samba_dc_users, and samba_dc_groups manage only listed objects.
+  Removing an item stops management; state: absent explicitly deletes it. List
+  OUs in parent-before-child order. Empty OUs marked absent are removed in
+  reverse order after users, groups, and PSOs are managed. OU deletion never
+  removes unlisted child objects recursively.
+- All groups are created before membership is reconciled, so nested groups may
+  appear in any order. Omitted members leaves membership unmanaged.
+  samba_dc_group_members_purge defaults to false (additive); true makes a
+  supplied members list authoritative. Each group may override members_purge. An
+  empty members list removes all members only in authoritative mode.
+- New users require a password supplied through a secret store.
+  samba_dc_user_update_password defaults to on_create and may be overridden per
+  user with update_password. always deliberately resets a supplied password on
+  every run and is not idempotent. Optional user and group attributes remain
+  unchanged when omitted, except enabled, scope, category, and location, which
+  use the documented module defaults. Omitted path places or moves users and
+  groups to the default Users container.
+- Domain password settings are applied before creating accounts. PSOs are
+  assigned after users, groups, and memberships exist. Existing passwords are
+  not retroactively reset by PSO assignments.
 - Enable samba_dc_laps on the schema FSMO owner to create or reconcile the seven
   `msLAPS-*` attributes, the encrypted-password property set, and computer-class
   membership using native Samba bindings. Schema updates are enabled only for
@@ -626,6 +710,43 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
       samba_dc_dns_forwarders:
         - 192.0.2.53
 
+```
+
+### Manage directory objects and a team password policy
+
+Group entries support `name`, `path`, `scope`, `category`, `description`,
+`gid_number`, `members`, `members_purge`, and `state`. `scope` accepts
+`global` (default), `domain_local`, or `universal`; `category` accepts
+`security` (default) or `distribution`. All user and OU object options are
+exposed in the role argument schema as well. Directory operations use
+Administrator and `samba_dc_admin_password` against the configured DC.
+
+```yaml
+samba_dc_ous:
+  - name: Staff
+    path: DC=ad,DC=example,DC=com
+  - name: Engineering
+    path: OU=Staff,DC=ad,DC=example,DC=com
+samba_dc_users:
+  - username: jdoe
+    path: OU=Engineering,OU=Staff,DC=ad,DC=example,DC=com
+    given_name: Jane
+    surname: Doe
+    password: "{{ vault_jdoe_password }}"
+samba_dc_groups:
+  - name: engineers
+    path: OU=Engineering,OU=Staff,DC=ad,DC=example,DC=com
+    members: [jdoe]
+  - name: announcements
+    scope: universal
+    category: distribution
+    members: [engineers]
+samba_dc_password_settings:
+  - name: engineering
+    precedence: 20
+    applies_to: [engineers]
+    settings:
+      minimum_length: 14
 ```
 
 ### Set domain and administrator password rules

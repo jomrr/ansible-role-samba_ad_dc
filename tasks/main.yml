@@ -43,5 +43,13 @@
     enabled: true
     state: started
 
-- name: SAMBA_DC | Configure domain DNS reservations and password policies
+- name: SAMBA_DC | Configure domain directory objects and policies
   ansible.builtin.import_tasks: directory.yml
+  module_defaults:
+    group/jomrr.samba.all: &__samba_dc_connection
+      server: "{{ samba_dc_hostname }}.{{ samba_dc_realm | lower }}"
+      realm: "{{ samba_dc_realm | upper }}"
+      bind_username: Administrator
+      bind_password: "{{ samba_dc_admin_password }}"
+    samba_dc_password_policy: *__samba_dc_connection
+    samba_dc_password_settings: *__samba_dc_connection
