@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from importlib import import_module
 from typing import Any
 
 from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
     connect_samdb,
-)
-from ansible_collections.jomrr.samba.plugins.module_utils.samba_user_io import (
-    build_child_dn,
-    load_ldb,
 )
 
 DOMAIN_ATTRIBUTES = {
@@ -151,7 +148,7 @@ class PasswordPolicyStore:
 
     def __init__(self, samdb: Any) -> None:
         self.samdb = samdb
-        self.ldb = load_ldb()
+        self.ldb = import_module("ldb")
 
     def read(self, dn: Any, attributes: list[str]) -> Any:
         """Return a policy object or None when the requested PSO does not exist."""
@@ -227,10 +224,10 @@ def reconcile_domain(samdb: Any, params: dict[str, Any], check_mode: bool) -> di
 def reconcile_pso(samdb: Any, params: dict[str, Any], check_mode: bool) -> dict:
     """Manage a PSO and its exact set of subjects; inherit creation defaults."""
     store = PasswordPolicyStore(samdb)
-    parent = store.ldb.Dn(
-        samdb, f"CN=Password Settings Container,CN=System,{samdb.domain_dn()}"
+    dn = store.ldb.Dn(
+        samdb, f"CN=placeholder,CN=Password Settings Container,CN=System,{samdb.domain_dn()}"
     )
-    dn = build_child_dn(samdb, "CN", params["name"], parent)
+    dn.set_component(0, "CN", params["name"])
     current = store.read(
         dn,
         list(PSO_ATTRIBUTES.values())
@@ -270,7 +267,7 @@ def run_module(
 ) -> None:
     """Bind and report policy changes through the common Ansible interface."""
     samdb = connect_samdb(module)
-    ldb = load_ldb()
+    ldb = import_module("ldb")
     try:
         result = reconcile(samdb, module.params, module.check_mode)
     except (ValueError, ldb.LdbError) as error:

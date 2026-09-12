@@ -8,7 +8,7 @@ from typing import Any
 from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = r"""
-module: samba_dc_test_laps
+module: samba_ad_dc_test_laps
 short_description: Verify the Windows LAPS schema on the test DC
 description:
   - Writes and reads the LAPS attributes on a temporary computer object.
@@ -28,10 +28,10 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_DC | Verify Windows LAPS password storage and access restrictions
-  samba_dc_test_laps:
+- name: SAMBA_AD_DC | Verify Windows LAPS password storage and access restrictions
+  samba_ad_dc_test_laps:
     server: dc1.ad.example.test
-    password: "{{ samba_dc_admin_password }}"
+    password: "{{ samba_ad_dc_admin_password }}"
 """
 
 

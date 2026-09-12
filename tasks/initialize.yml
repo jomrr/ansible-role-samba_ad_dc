@@ -1,0 +1,60 @@
+---
+# role: samba_ad_dc
+# file: tasks/initialize.yml
+
+- name: SAMBA_AD_DC | Install the validated domain controller configuration
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: "{{ __samba_ad_dc_config }}"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: "{{ __samba_ad_dc_validate }}"
+  notify: restart domain controller
+
+- name: SAMBA_AD_DC | Provision the first controller of the new domain
+  become: true
+  become_user: root
+  jomrr.samba.samba_provision:
+    realm: "{{ samba_ad_dc_realm | upper }}"
+    domain: "{{ samba_ad_dc_domain | upper }}"
+    hostname: "{{ samba_ad_dc_hostname }}"
+    admin_password: "{{ samba_ad_dc_admin_password }}"
+    dns_backend: SAMBA_INTERNAL
+    function_level: "{{ samba_ad_dc_function_level }}"
+    use_rfc2307: "{{ samba_ad_dc_use_rfc2307 }}"
+    state: present
+  when: samba_ad_dc_mode == 'provision'
+  no_log: true
+
+- name: SAMBA_AD_DC | Join the existing domain as an additional controller
+  become: true
+  become_user: root
+  jomrr.samba.samba_join_dc:
+    realm: "{{ samba_ad_dc_realm | upper }}"
+    server: "{{ samba_ad_dc_join_server }}"
+    domain: "{{ samba_ad_dc_domain | upper }}"
+    netbios_name: "{{ samba_ad_dc_hostname | upper }}"
+    site: "{{ samba_ad_dc_join_site | default(omit) }}"
+    bind_username: Administrator
+    bind_password: "{{ samba_ad_dc_admin_password }}"
+    dns_backend: SAMBA_INTERNAL
+    state: present
+  when: samba_ad_dc_mode == 'join'
+  no_log: true
+
+- name: SAMBA_AD_DC | Install the initialized Kerberos configuration
+  become: true
+  become_user: root
+  ansible.builtin.copy:
+    src: "{{ __samba_ad_dc_private_dir }}/krb5.conf"
+    dest: /etc/krb5.conf
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: restart domain controller

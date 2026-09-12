@@ -1,15 +1,15 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: vars/Fedora.yml
 
-__samba_dc_packages:
+__samba_ad_dc_packages:
   - samba-dc
   - samba-common-tools
   - python3-samba
   - samba-winbind
-__samba_dc_service: samba
-__samba_dc_standalone_services: [smb, nmb, winbind]
-__samba_dc_config: /etc/samba/smb.conf
-__samba_dc_private_dir: /var/lib/samba/private
-__samba_dc_sysvol_dir: /var/lib/samba/sysvol
-__samba_dc_validate: /usr/bin/testparm --suppress-prompt %s
+__samba_ad_dc_service: samba
+__samba_ad_dc_standalone_services: [smb, nmb, winbind]
+__samba_ad_dc_config: /etc/samba/smb.conf
+__samba_ad_dc_private_dir: /var/lib/samba/private
+__samba_ad_dc_sysvol_dir: /var/lib/samba/sysvol
+__samba_ad_dc_validate: /usr/bin/testparm --suppress-prompt %s

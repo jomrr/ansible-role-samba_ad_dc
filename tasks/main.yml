@@ -1,55 +1,39 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: tasks/main.yml
 
-- name: SAMBA_DC | Load platform settings
-  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
-  vars:
-    __samba_dc_platform_files:
-      files:
-        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
-        - "{{ ansible_facts.distribution }}.yml"
-        - "{{ ansible_facts.os_family }}.yml"
-      paths:
-        - "{{ role_path }}/vars"
-
-- name: SAMBA_DC | Configure domain controller package sources
-  ansible.builtin.include_tasks: repositories.yml
-  when: ansible_facts.distribution == 'AlmaLinux'
-
-- name: SAMBA_DC | Install domain controller packages
+- name: SAMBA_AD_DC | Install domain controller packages
   ansible.builtin.import_tasks: install.yml
 
-- name: SAMBA_DC | Configure and provision the domain
-  ansible.builtin.import_tasks: provision.yml
+- name: SAMBA_AD_DC | Initialize the domain controller
+  ansible.builtin.import_tasks: initialize.yml
 
-- name: SAMBA_DC | Prepare the Windows LAPS schema
+- name: SAMBA_AD_DC | Prepare the Windows LAPS schema
   become: true
   become_user: root
-  samba_dc_laps:
-    configfile: "{{ __samba_dc_config }}"
-  when: samba_dc_laps | bool
+  samba_ad_dc_laps:
+    configfile: "{{ __samba_ad_dc_config }}"
+  when: samba_ad_dc_laps | bool
   notify: restart domain controller
 
-- name: SAMBA_DC | Apply pending configuration changes
+- name: SAMBA_AD_DC | Apply pending configuration changes
   ansible.builtin.meta: flush_handlers
 
-- name: SAMBA_DC | Enable and start the domain controller
+- name: SAMBA_AD_DC | Enable and start the domain controller
   become: true
   become_user: root
   ansible.builtin.systemd_service:
-    name: "{{ __samba_dc_service }}"
+    name: "{{ __samba_ad_dc_service }}"
     masked: false
     enabled: true
     state: started
 
-- name: SAMBA_DC | Configure domain directory objects and policies
-  ansible.builtin.import_tasks: directory.yml
+- name: SAMBA_AD_DC | Configure domain password policies
+  ansible.builtin.import_tasks: passwords.yml
   module_defaults:
-    group/jomrr.samba.all: &__samba_dc_connection
-      server: "{{ samba_dc_hostname }}.{{ samba_dc_realm | lower }}"
-      realm: "{{ samba_dc_realm | upper }}"
+    samba_ad_dc_password_policy: &__samba_ad_dc_connection
+      server: "{{ samba_ad_dc_hostname }}.{{ samba_ad_dc_realm | lower }}"
+      realm: "{{ samba_ad_dc_realm | upper }}"
       bind_username: Administrator
-      bind_password: "{{ samba_dc_admin_password }}"
-    samba_dc_password_policy: *__samba_dc_connection
-    samba_dc_password_settings: *__samba_dc_connection
+      bind_password: "{{ samba_ad_dc_admin_password }}"
+    samba_ad_dc_password_settings: *__samba_ad_dc_connection

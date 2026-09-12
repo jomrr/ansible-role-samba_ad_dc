@@ -1,15 +1,15 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: molecule/vm/verify.yml
 
-- name: SAMBA_DC | Run the shared domain controller verification
+- name: SAMBA_AD_DC | Run the shared domain controller verification
   ansible.builtin.import_playbook: ../resources/playbooks/verify.yml
 
-- name: SAMBA_DC | Verify SELinux on the domain controller VM
+- name: SAMBA_AD_DC | Verify SELinux on the domain controller VM
   hosts: all
   gather_facts: true
   tasks:
-    - name: SAMBA_DC | Verify SELinux remains Enforcing
+    - name: SAMBA_AD_DC | Verify SELinux remains Enforcing
       ansible.builtin.assert:
         that:
           - ansible_facts.selinux.status == 'enabled'
@@ -17,7 +17,7 @@
           - ansible_facts.selinux.config_mode == 'enforcing'
         quiet: true
 
-    - name: SAMBA_DC | Verify Samba file contexts match the installed policy
+    - name: SAMBA_AD_DC | Verify Samba file contexts match the installed policy
       become: true
       become_user: root
       ansible.builtin.command:
@@ -31,14 +31,22 @@
           - /var/log/samba
       changed_when: false
 
-    - name: SAMBA_DC | Reject Samba SELinux access denials since VM boot
+    - name: SAMBA_AD_DC | Reject Samba SELinux access denials since VM boot
       become: true
       become_user: root
       ansible.builtin.command:
-        argv: [ausearch, --message, 'AVC,USER_AVC', --start, boot, --executable, "{{ __samba_dc_test_executable }}", --raw]
+        argv:
+          - ausearch
+          - --message
+          - 'AVC,USER_AVC'
+          - --start
+          - boot
+          - --executable
+          - "{{ __samba_ad_dc_test_executable }}"
+          - --raw
       loop: [/usr/sbin/samba, /usr/sbin/smbd, /usr/sbin/winbindd]
       loop_control:
-        loop_var: __samba_dc_test_executable
-      register: __samba_dc_selinux_denials
+        loop_var: __samba_ad_dc_test_executable
+      register: __samba_ad_dc_selinux_denials
       changed_when: false
-      failed_when: __samba_dc_selinux_denials.rc != 1
+      failed_when: __samba_ad_dc_selinux_denials.rc != 1

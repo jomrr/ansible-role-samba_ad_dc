@@ -1,17 +1,32 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: tasks/install.yml
 
-- name: SAMBA_DC | Install Samba and its Python bindings
+- name: SAMBA_AD_DC | Load platform settings
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_ad_dc_platform_files) }}"
+  vars:
+    __samba_ad_dc_platform_files:
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: SAMBA_AD_DC | Configure domain controller package sources
+  ansible.builtin.include_tasks: repositories.yml
+  when: ansible_facts.distribution == 'AlmaLinux'
+
+- name: SAMBA_AD_DC | Install Samba and its Python bindings
   become: true
   become_user: root
   ansible.builtin.package:
-    name: "{{ __samba_dc_packages }}"
+    name: "{{ __samba_ad_dc_packages }}"
     state: present
   environment:
     DEBIAN_FRONTEND: noninteractive
 
-- name: SAMBA_DC | Restrict access to Samba audit logs
+- name: SAMBA_AD_DC | Restrict access to Samba audit logs
   become: true
   become_user: root
   ansible.builtin.file:
@@ -21,15 +36,15 @@
     group: root
     mode: "0700"
 
-- name: SAMBA_DC | Stop and mask standalone Samba services
+- name: SAMBA_AD_DC | Stop and mask standalone Samba services
   become: true
   become_user: root
   ansible.builtin.systemd_service:
-    name: "{{ __samba_dc_standalone_service }}"
+    name: "{{ __samba_ad_dc_standalone_service }}"
     state: stopped
     enabled: false
     masked: true
-  loop: "{{ __samba_dc_standalone_services }}"
+  loop: "{{ __samba_ad_dc_standalone_services }}"
   loop_control:
-    loop_var: __samba_dc_standalone_service
-    label: "{{ __samba_dc_standalone_service }}"
+    loop_var: __samba_ad_dc_standalone_service
+    label: "{{ __samba_ad_dc_standalone_service }}"

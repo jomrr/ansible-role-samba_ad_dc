@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.samba_dc_password_policy import (
+from ansible.module_utils.samba_ad_dc_password_policy import (
     reconcile_pso,
     run_module,
     settings_argument_spec,
@@ -17,9 +17,9 @@ from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
 )
 
 DOCUMENTATION = r"""
-module: samba_dc_password_settings
+module: samba_ad_dc_password_settings
 short_description: Manage a fine-grained password settings object
-extends_documentation_fragment: [jomrr.samba.connection, samba_dc_password_policy]
+extends_documentation_fragment: [jomrr.samba.connection, samba_ad_dc_password_policy]
 description:
 - Manage a fine-grained password settings object through the native Samba LDAP bindings.
 author: [Jonas Mauer (@jomrr)]
@@ -59,7 +59,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Manage a fine-grained password settings object
-  samba_dc_password_settings:
+  samba_ad_dc_password_settings:
     server: dc1.ad.example.com
     realm: AD.EXAMPLE.COM
     bind_username: Administrator

@@ -1,5 +1,5 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: molecule/vm/molecule.yml
 
 dependency:
@@ -32,69 +32,37 @@ provisioner:
   inventory:
     group_vars:
       all:
-        __samba_dc_test_rootless: false
-        samba_dc_realm: "AD.EXAMPLE.TEST"
-        samba_dc_domain: "EXAMPLE"
-        samba_dc_hostname: "dc1"
-        samba_dc_laps: true
-        samba_dc_rpc_dynamic_port_range: "50000-55000"
-        samba_dc_ous:
-          - name: "Molecule"
-            path: "DC=ad,DC=example,DC=test"
-          - name: "Staff"
-            path: "OU=Molecule,DC=ad,DC=example,DC=test"
-            description: "Initial staff OU"
-          - name: "Groups"
-            path: "OU=Molecule,DC=ad,DC=example,DC=test"
-          - name: "Retired"
-            path: "OU=Molecule,DC=ad,DC=example,DC=test"
-          - name: "Children"
-            path: "OU=Retired,OU=Molecule,DC=ad,DC=example,DC=test"
-        samba_dc_users:
-          - username: "moleculereader"
-            password: "Molecule-Only-Reader1!"
-          - username: "molecule-managed"
-            password: "Molecule-Managed-Account1!"
-            path: "OU=Staff,OU=Molecule,DC=ad,DC=example,DC=test"
-            display_name: "Initial managed user"
-            uid_number: 21001
-            gid_number: 21000
-          - username: "molecule-retired"
-            password: "Molecule-Retired-Account1!"
-            path: "OU=Children,OU=Retired,OU=Molecule,DC=ad,DC=example,DC=test"
-        samba_dc_groups:
-          - name: "molecule-parent-group"
-            path: "OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test"
-            members:
-              - "molecule-managed-group"
-            members_purge: false
-          - name: "molecule-managed-group"
-            path: "OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test"
-            members:
-              - "molecule-managed"
-            description: "Initial managed group"
-            gid_number: 21000
-          - name: "molecule-scope-group"
-            path: "OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test"
-            scope: "universal"
-            category: "distribution"
-            members:
-              - "molecule-managed-group"
-          - name: "molecule-audit-group"
-            members:
-              - "moleculereader"
-          - name: "molecule-retired-group"
-            path: "OU=Retired,OU=Molecule,DC=ad,DC=example,DC=test"
-            members:
-              - "molecule-retired"
-        samba_dc_password_policy:
+        __samba_ad_dc_test_rootless: false
+        samba_ad_dc_realm: "AD.EXAMPLE.TEST"
+        samba_ad_dc_domain: "EXAMPLE"
+        samba_ad_dc_hostname: "dc1"
+        samba_ad_dc_laps: true
+        samba_ad_dc_rpc_dynamic_port_range: "50000-55000"
+        samba_ad_dc_admin_password: "Molecule-Only-Adm1n!"
+        samba_ad_dc_tls_keyfile: "/etc/samba/tls/dc1.key"
+        samba_ad_dc_tls_certfile: "/etc/samba/tls/dc1.crt"
+        samba_ad_dc_tls_cafile: "/etc/samba/tls/ca.crt"
+        __samba_ad_dc_test_cafile: "/etc/samba/tls/ca.crt"
+      samba_ad_dc_joiners:
+        samba_ad_dc_mode: "join"
+        samba_ad_dc_hostname: "dc2"
+        samba_ad_dc_join_server: "dc1.ad.example.test"
+        samba_ad_dc_join_site: "Default-First-Site-Name"
+        samba_ad_dc_laps: false
+        samba_ad_dc_tls_keyfile: "tls/key.pem"
+        samba_ad_dc_tls_certfile: "tls/cert.pem"
+        samba_ad_dc_tls_cafile: "tls/ca.pem"
+        __samba_ad_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
+        __samba_ad_dc_test_source: "{{ inventory_hostname.removesuffix('-join') }}"
+      samba_ad_dc_sources:
+        samba_ad_dc_password_policy:
           minimum_length: 12
           history_length: 24
           minimum_age_days: 0
           maximum_age_days: 0
           complexity: true
           reversible_encryption: false
-        samba_dc_password_settings:
+        samba_ad_dc_password_settings:
           - name: "domain_admins"
             precedence: 10
             applies_to:
@@ -104,27 +72,22 @@ provisioner:
           - name: "molecule-managed"
             precedence: 20
             applies_to:
-              - "molecule-parent-group"
+              - "Domain Admins"
             settings:
               minimum_length: 14
           - name: "molecule-delete"
             precedence: 30
-        samba_dc_admin_password: "Molecule-Only-Adm1n!"
-        samba_dc_tls_keyfile: "/etc/samba/tls/dc1.key"
-        samba_dc_tls_certfile: "/etc/samba/tls/dc1.crt"
-        samba_dc_tls_cafile: "/etc/samba/tls/ca.crt"
-        __samba_dc_test_cafile: "/etc/samba/tls/ca.crt"
     host_vars:
-      samba-dc-debian:
-        samba_dc_tls_keyfile: "tls/key.pem"
-        samba_dc_tls_certfile: "tls/cert.pem"
-        samba_dc_tls_cafile: "tls/ca.pem"
-        __samba_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
-      samba-dc-ubuntu:
-        samba_dc_tls_keyfile: "tls/key.pem"
-        samba_dc_tls_certfile: "tls/cert.pem"
-        samba_dc_tls_cafile: "tls/ca.pem"
-        __samba_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
+      samba-ad-dc-debian:
+        samba_ad_dc_tls_keyfile: "tls/key.pem"
+        samba_ad_dc_tls_certfile: "tls/cert.pem"
+        samba_ad_dc_tls_cafile: "tls/ca.pem"
+        __samba_ad_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
+      samba-ad-dc-ubuntu:
+        samba_ad_dc_tls_keyfile: "tls/key.pem"
+        samba_ad_dc_tls_certfile: "tls/cert.pem"
+        samba_ad_dc_tls_cafile: "tls/ca.pem"
+        __samba_ad_dc_test_cafile: "/var/lib/samba/private/tls/ca.pem"
 verifier:
   name: "ansible"
 scenario:
@@ -142,10 +105,12 @@ scenario:
     - "destroy"
   name: "vm"
 platforms:
-  - name: "samba-dc-vm-fedora"
-    box: "samba-dc-fedora-44"
+  - name: "samba-ad-dc-vm-fedora"
+    groups:
+      - "samba_ad_dc_sources"
+    box: "samba-ad-dc-fedora-44"
     provider_options:
-      storage_pool_name: "${SAMBA_DC_VM_STORAGE_POOL:-default}"
+      storage_pool_name: "${SAMBA_AD_DC_VM_STORAGE_POOL:-default}"
     box_url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/Fedora-Cloud-Base-Vagrant-libvirt-44-1.7.x86_64.vagrant.libvirt.box"
     box_download_checksum_type: "sha256"
     box_download_checksum: "4695d5ef2bfcc882649b98de0c545d04671d2064f6609e7e68e606718c8333dc"
@@ -153,10 +118,12 @@ platforms:
     cpus: 2
     config_options:
       synced_folder: false
-  - name: "samba-dc-vm-almalinux"
+  - name: "samba-ad-dc-vm-almalinux"
+    groups:
+      - "samba_ad_dc_sources"
     box: "almalinux/10"
     provider_options:
-      storage_pool_name: "${SAMBA_DC_VM_STORAGE_POOL:-default}"
+      storage_pool_name: "${SAMBA_AD_DC_VM_STORAGE_POOL:-default}"
     box_architecture: "amd64"
     memory: 2048
     cpus: 2

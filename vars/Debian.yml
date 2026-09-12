@@ -1,8 +1,8 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: vars/Debian.yml
 
-__samba_dc_packages:
+__samba_ad_dc_packages:
   - samba
   - samba-ad-dc
   - samba-ad-provision
@@ -10,9 +10,9 @@ __samba_dc_packages:
   - samba-vfs-modules
   - python3-samba
   - winbind
-__samba_dc_service: samba-ad-dc
-__samba_dc_standalone_services: [smbd, nmbd, winbind]
-__samba_dc_config: /etc/samba/smb.conf
-__samba_dc_private_dir: /var/lib/samba/private
-__samba_dc_sysvol_dir: /var/lib/samba/sysvol
-__samba_dc_validate: /usr/bin/testparm --suppress-prompt %s
+__samba_ad_dc_service: samba-ad-dc
+__samba_ad_dc_standalone_services: [smbd, nmbd, winbind]
+__samba_ad_dc_config: /etc/samba/smb.conf
+__samba_ad_dc_private_dir: /var/lib/samba/private
+__samba_ad_dc_sysvol_dir: /var/lib/samba/sysvol
+__samba_ad_dc_validate: /usr/bin/testparm --suppress-prompt %s

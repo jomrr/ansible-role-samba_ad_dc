@@ -1,51 +1,52 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: molecule/resources/playbooks/prepare.yml
 
-- name: SAMBA_DC | Prepare dedicated domain controller test instances
+- name: SAMBA_AD_DC | Prepare dedicated domain controller test instances
   hosts: all
   gather_facts: true
   vars:
-    __samba_dc_test_packages:
+    __samba_ad_dc_test_packages:
       Debian: [smbclient, dnsutils, krb5-user, ldap-utils, openssl, python3-cryptography]
       RedHat: [samba-client, bind-utils, krb5-workstation, openldap-clients, openssl, python3-cryptography]
       Suse: [samba-client, bind-utils, openldap2-client, openssl]
   tasks:
-    - name: SAMBA_DC | Load platform package names
-      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_dc_platform_files) }}"
+    - name: SAMBA_AD_DC | Load platform package names
+      ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', __samba_ad_dc_platform_files) }}"
       vars:
-        __samba_dc_platform_files:
+        __samba_ad_dc_platform_files:
           files:
-            - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}.yml"
+            - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture
+              }}.yml"
             - "{{ ansible_facts.distribution }}.yml"
             - "{{ ansible_facts.os_family }}.yml"
           paths:
             - "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/vars"
 
-    - name: SAMBA_DC | Configure package sources before preparing the fixture
+    - name: SAMBA_AD_DC | Configure package sources before preparing the fixture
       ansible.builtin.include_tasks: ../../../tasks/repositories.yml
       when: ansible_facts.distribution == 'AlmaLinux'
 
-    - name: SAMBA_DC | Refresh Debian package metadata
+    - name: SAMBA_AD_DC | Refresh Debian package metadata
       become: true
       become_user: root
       ansible.builtin.apt:
         update_cache: true
       when: ansible_facts.pkg_mgr == 'apt'
 
-    - name: SAMBA_DC | Install packages for provisioning and test clients
+    - name: SAMBA_AD_DC | Install packages for provisioning and test clients
       become: true
       become_user: root
       ansible.builtin.package:
-        name: "{{ __samba_dc_packages + __samba_dc_test_packages[ansible_facts.os_family] }}"
+        name: "{{ __samba_ad_dc_packages + __samba_ad_dc_test_packages[ansible_facts.os_family] }}"
         state: present
       environment:
         DEBIAN_FRONTEND: noninteractive
 
-    - name: SAMBA_DC | Prepare certificates supplied by an external PKI
-      when: samba_dc_tls_certfile == '/etc/samba/tls/dc1.crt'
+    - name: SAMBA_AD_DC | Prepare certificates supplied by an external PKI
+      when: samba_ad_dc_tls_certfile == '/etc/samba/tls/dc1.crt'
       block:
-        - name: SAMBA_DC | Create the fixture certificate directory
+        - name: SAMBA_AD_DC | Create the fixture certificate directory
           become: true
           become_user: root
           ansible.builtin.file:
@@ -55,11 +56,11 @@
             group: root
             mode: "0700"
 
-        - name: SAMBA_DC | Generate disposable fixture keys
+        - name: SAMBA_AD_DC | Generate disposable fixture keys
           become: true
           become_user: root
           community.crypto.openssl_privatekey:
-            path: "/etc/samba/tls/{{ __samba_dc_test_key }}.key"
+            path: "/etc/samba/tls/{{ __samba_ad_dc_test_key }}.key"
             type: RSA
             size: 3072
             owner: root
@@ -67,9 +68,9 @@
             mode: "0600"
           loop: [ca, dc1]
           loop_control:
-            loop_var: __samba_dc_test_key
+            loop_var: __samba_ad_dc_test_key
 
-        - name: SAMBA_DC | Create the test CA request
+        - name: SAMBA_AD_DC | Create the test CA request
           become: true
           become_user: root
           community.crypto.openssl_csr:
@@ -82,7 +83,7 @@
             key_usage_critical: true
             mode: "0644"
 
-        - name: SAMBA_DC | Create the disposable CA certificate
+        - name: SAMBA_AD_DC | Create the disposable CA certificate
           become: true
           become_user: root
           community.crypto.x509_certificate:
@@ -93,7 +94,7 @@
             selfsigned_not_after: +2d
             mode: "0644"
 
-        - name: SAMBA_DC | Create the DC certificate request
+        - name: SAMBA_AD_DC | Create the DC certificate request
           become: true
           become_user: root
           community.crypto.openssl_csr:
@@ -105,7 +106,7 @@
             key_usage: [digitalSignature, keyEncipherment]
             mode: "0644"
 
-        - name: SAMBA_DC | Issue the DC certificate from the test CA
+        - name: SAMBA_AD_DC | Issue the DC certificate from the test CA
           become: true
           become_user: root
           community.crypto.x509_certificate:
@@ -117,36 +118,66 @@
             ownca_not_after: +2d
             mode: "0644"
 
-    - name: SAMBA_DC | Fit provisioned identities inside the rootless UID namespace
+    - name: SAMBA_AD_DC | Fit provisioned identities inside the rootless UID namespace
       become: true
       become_user: root
-      when: __samba_dc_test_rootless | bool
+      when: __samba_ad_dc_test_rootless | bool
       ansible.builtin.replace:
         path: /usr/share/samba/setup/idmap_init.ldif
-        regexp: "{{ __samba_dc_idmap_bound.regexp }}"
-        replace: "{{ __samba_dc_idmap_bound.value }}"
+        regexp: "{{ __samba_ad_dc_idmap_bound.regexp }}"
+        replace: "{{ __samba_ad_dc_idmap_bound.value }}"
       loop:
         - regexp: '^lowerBound: .*'
           value: 'lowerBound: 10000'
         - regexp: '^upperBound: .*'
           value: 'upperBound: 60000'
       loop_control:
-        loop_var: __samba_dc_idmap_bound
-        label: "{{ __samba_dc_idmap_bound.value }}"
+        loop_var: __samba_ad_dc_idmap_bound
+        label: "{{ __samba_ad_dc_idmap_bound.value }}"
 
-    - name: SAMBA_DC | Resolve the DC to its test address
+    - name: SAMBA_AD_DC | Read the unique network address assigned to the container
+      containers.podman.podman_container_info:
+        name: "{{ inventory_hostname }}"
+      delegate_to: localhost
+      register: __samba_ad_dc_test_container
+      when: __samba_ad_dc_test_rootless | bool
+
+    - name: SAMBA_AD_DC | Restore the container MAC changed by the image
+      become: true
+      become_user: root
+      ansible.builtin.command:
+        argv:
+          - ip
+          - link
+          - set
+          - dev
+          - "{{ ansible_facts.default_ipv4.interface }}"
+          - address
+          - "{{ __samba_ad_dc_test_mac }}"
+      vars:
+        __samba_ad_dc_test_mac: >-
+          {{ (__samba_ad_dc_test_container.containers[0].NetworkSettings.Networks.values() | first).MacAddress
+          }}
+      when:
+        - __samba_ad_dc_test_rootless | bool
+        - ansible_facts.default_ipv4.macaddress != __samba_ad_dc_test_mac
+      changed_when: true
+
+    - name: SAMBA_AD_DC | Resolve the DC to its test address
       become: true
       become_user: root
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        regexp: ' dc1.ad.example.test '
-        line: "{{ ansible_facts.default_ipv4.address }} dc1.ad.example.test dc1"
+        regexp: '^\s*{{ ansible_facts.default_ipv4.address | regex_escape }}\s+'
+        line: >-
+          {{ ansible_facts.default_ipv4.address }}
+          {{ samba_ad_dc_hostname }}.{{ samba_ad_dc_realm | lower }} {{ samba_ad_dc_hostname }}
         unsafe_writes: true
 
-    - name: SAMBA_DC | Discover resolver services in the test image
+    - name: SAMBA_AD_DC | Discover resolver services in the test image
       ansible.builtin.service_facts:
 
-    - name: SAMBA_DC | Release DNS port 53 in the test instance
+    - name: SAMBA_AD_DC | Release DNS port 53 in the test instance
       become: true
       become_user: root
       ansible.builtin.systemd_service:
@@ -156,9 +187,10 @@
         masked: true
       when: "'systemd-resolved.service' in ansible_facts.services"
 
-    - name: SAMBA_DC | Use the local AD DNS service for test clients
+    - name: SAMBA_AD_DC | Use the local AD DNS service for test clients
       become: true
       become_user: root
+      when: "'samba_ad_dc_sources' in group_names"
       ansible.builtin.copy:
         dest: /etc/resolv.conf
         owner: root
@@ -168,3 +200,34 @@
         content: |
           nameserver 127.0.0.1
           search ad.example.test
+
+- name: SAMBA_AD_DC | Prepare existing domain DNS and Kerberos for joining
+  hosts: samba_ad_dc_joiners
+  gather_facts: false
+  tasks:
+    - name: SAMBA_AD_DC | Resolve the existing DC through its authoritative DNS
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: "0644"
+        unsafe_writes: true
+        content: |
+          nameserver {{ hostvars[__samba_ad_dc_test_source].ansible_facts.default_ipv4.address }}
+          search ad.example.test
+
+    - name: SAMBA_AD_DC | Configure Kerberos discovery before joining
+      become: true
+      become_user: root
+      ansible.builtin.copy:
+        dest: /etc/krb5.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [libdefaults]
+              default_realm = {{ samba_ad_dc_realm }}
+              dns_lookup_realm = false
+              dns_lookup_kdc = true

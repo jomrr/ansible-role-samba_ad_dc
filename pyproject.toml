@@ -1,11 +1,11 @@
 [project]
-name = "samba_dc"
+name = "samba_ad_dc"
 version = "0.0.0"
-description = "Ansible role for provisioning and running the first Samba Active Directory domain controller."
+description = "Ansible role for provisioning, joining, and running Samba Active Directory domain controllers."
 authors = ["Jonas Mauer"]
 license = "MIT"
 keywords = ["samba", "activedirectory", "domaincontroller", "dns", "kerberos"]
-repository = "https://github.com/jomrr/ansible-role-samba_dc"
+repository = "https://github.com/jomrr/ansible-role-samba_ad_dc"
 
 [tool.commitizen]
 name = "cz_conventional_commits"

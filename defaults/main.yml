@@ -1,133 +1,67 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: defaults/main.yml
 
-# Kerberos realm and DNS domain of the new forest; required and immutable after provisioning.
-# samba_dc_realm:
-# Example: samba_dc_realm: AD.EXAMPLE.COM
+# Initialize a new domain (provision) or add a writable DC to an existing domain (join).
+samba_ad_dc_mode: provision
+# Example: samba_ad_dc_mode: join
+
+# Existing DC DNS hostname; required in join mode, unused in provision mode.
+# samba_ad_dc_join_server:
+# Example: samba_ad_dc_join_server: dc1.ad.example.com
+
+# Existing AD site for the joined DC; omitted lets Samba choose the site.
+# samba_ad_dc_join_site:
+# Example: samba_ad_dc_join_site: Default-First-Site-Name
+
+# Kerberos realm and DNS domain to provision or join; required and immutable after initialization.
+# samba_ad_dc_realm:
+# Example: samba_ad_dc_realm: AD.EXAMPLE.COM
 
 # NetBIOS domain name; required and immutable after provisioning.
-# samba_dc_domain:
-# Example: samba_dc_domain: EXAMPLE
+# samba_ad_dc_domain:
+# Example: samba_ad_dc_domain: EXAMPLE
 
-# Administrator password for provisioning and directory settings; supplied through a secret store.
-# samba_dc_admin_password:
-# Example: samba_dc_admin_password: "{{ vault_samba_dc_admin_password }}"
+# Administrator password for provisioning, joining, and password policies; supplied through a secret store.
+# samba_ad_dc_admin_password:
+# Example: samba_ad_dc_admin_password: "{{ vault_samba_ad_dc_admin_password }}"
 
 # Short DNS hostname of the domain controller; immutable after provisioning.
-samba_dc_hostname: "{{ ansible_facts.hostname }}"
-# Example: samba_dc_hostname: dc1
+samba_ad_dc_hostname: "{{ ansible_facts.hostname }}"
+# Example: samba_ad_dc_hostname: dc1
 
-# Domain, forest, and DC functional level used during initial provisioning.
-samba_dc_function_level: "2016"
-# Example: samba_dc_function_level: "2008_R2"
+# DC functional level; initial provisioning also sets the domain and forest levels to this value.
+samba_ad_dc_function_level: "2016"
+# Example: samba_ad_dc_function_level: "2008_R2"
 
 # Enable RFC2307 POSIX attributes during provisioning and their use by the DC.
-samba_dc_use_rfc2307: true
+samba_ad_dc_use_rfc2307: true
 
 # Prepare the Windows LAPS schema; disabling preserves any existing schema extension.
-samba_dc_laps: false
+samba_ad_dc_laps: false
 
 # Upstream DNS server addresses; an empty list disables external DNS forwarding.
-samba_dc_dns_forwarders: []
-# Example: samba_dc_dns_forwarders: [192.0.2.53, 192.0.2.54]
-
-# DNS names reserved with administrator-owned loopback A records; [] stops management.
-samba_dc_dns_reserved_names: [wpad, isatap]
+samba_ad_dc_dns_forwarders: []
+# Example: samba_ad_dc_dns_forwarders: [192.0.2.53, 192.0.2.54]
 
 # Dynamic RPC server port range; align firewall rules with the selected range.
-samba_dc_rpc_dynamic_port_range: 49152-65535
-# Example: samba_dc_rpc_dynamic_port_range: 50000-55000
+samba_ad_dc_rpc_dynamic_port_range: 49152-65535
+# Example: samba_ad_dc_rpc_dynamic_port_range: 50000-55000
 
 # Encryption types accepted by the domain controller's Kerberos KDC.
-samba_dc_kdc_supported_enctypes:
+samba_ad_dc_kdc_supported_enctypes:
   - aes128-cts-hmac-sha1-96
   - aes256-cts-hmac-sha1-96
 
 # Kerberos encryption types for accounts without an explicit encryption-type value.
-samba_dc_kdc_default_domain_supported_enctypes:
+samba_ad_dc_kdc_default_domain_supported_enctypes:
   - aes128-cts-hmac-sha1-96
   - aes256-cts-hmac-sha1-96
 
-# Organizational units in parent-before-child order; absent OUs are removed in reverse order.
-# Removing an entry stops management; state: absent deletes only an empty OU.
-samba_dc_ous: []
-# Example:
-# samba_dc_ous:
-#   - name: Staff  # Required OU name (RDN value).
-#     path: DC=ad,DC=example,DC=com  # Required parent DN; parent must already exist.
-#     description: Staff accounts  # Optional LDAP description; omitted leaves it unchanged.
-#     state: present  # present (default) or absent; deletion is not recursive.
-#   - name: Engineering
-#     path: OU=Staff,DC=ad,DC=example,DC=com
-#     description: Engineering team
-#     state: present
-
-# Domain user accounts; removing an entry stops management, state: absent deletes it.
-# New accounts require a password from a secret store.
-# Omitted profile and POSIX attributes remain unchanged; POSIX attributes require RFC2307.
-# Omitted path places or moves the account to CN=Users,<domain DN>.
-# Omitted update_password inherits samba_dc_user_update_password.
-samba_dc_users: []
-# Example:
-# samba_dc_users:
-#   - username: jdoe  # Required user logon name (sAMAccountName).
-#     path: OU=Engineering,OU=Staff,DC=ad,DC=example,DC=com  # Optional existing parent DN.
-#     given_name: Jane  # First name (givenName).
-#     surname: Doe  # Last name (sn).
-#     display_name: Jane Doe  # Display name (displayName).
-#     email: jane.doe@example.com  # Email address (mail).
-#     description: Engineering account  # LDAP description.
-#     uid_number: 10001  # Integer POSIX user ID (uidNumber).
-#     gid_number: 10000  # Integer POSIX primary group ID (gidNumber).
-#     unix_home_directory: /home/jdoe  # POSIX home directory (unixHomeDirectory).
-#     login_shell: /bin/bash  # POSIX login shell (loginShell).
-#     gecos: Jane Doe  # POSIX GECOS field (gecos).
-#     enabled: true  # true (default) enables the account; false disables it.
-#     password: "{{ vault_jdoe_password }}"  # Required for creation; otherwise optional.
-#     update_password: on_create  # on_create or always; overrides samba_dc_user_update_password.
-#     state: present  # present (default) or absent.
-
-# Password update policy for users; each user may override update_password.
-# on_create sets the supplied password only on creation; always resets it on every run.
-# always reports a change on every run; neither policy changes a password when password is omitted.
-samba_dc_user_update_password: on_create
-# Example: samba_dc_user_update_password: always
-
-# Domain groups; members are managed after every listed group exists, allowing nested groups.
-# Removing an entry stops management; state: absent deletes the group.
-# Omitted path places or moves the group to CN=Users,<domain DN>.
-# Omitted description and gid_number leave those attributes unchanged.
-# Omitted members_purge inherits samba_dc_group_members_purge.
-# Omitted members leaves membership unmanaged; members: [] clears it only with members_purge: true.
-samba_dc_groups: []
-# Example:
-# samba_dc_groups:
-#   - name: engineers  # Required group name (sAMAccountName).
-#     path: OU=Engineering,OU=Staff,DC=ad,DC=example,DC=com  # Optional existing parent DN.
-#     scope: global  # global (default), domain_local, or universal.
-#     category: security  # security (default) or distribution; combines with scope into groupType.
-#     description: Engineering staff  # Optional LDAP description.
-#     gid_number: 10000  # Optional integer POSIX group ID (gidNumber); requires RFC2307.
-#     members:  # Optional list of user, group, or computer sAMAccountNames.
-#       - jdoe
-#     members_purge: false  # Overrides samba_dc_group_members_purge; false adds, true replaces the set.
-#     state: present  # present (default) or absent.
-#   - name: announcements
-#     scope: universal
-#     category: distribution
-#     members:
-#       - engineers  # Nested group; all listed groups exist before memberships are managed.
-
-# Membership policy used when a group supplies members; each group may override members_purge.
-# false adds missing members and keeps unlisted ones; true removes unlisted members.
-samba_dc_group_members_purge: false
-# Example: samba_dc_group_members_purge: true
-
 # Domain password and lockout settings; all fields are optional and unspecified settings remain unchanged.
-samba_dc_password_policy: {}
+samba_ad_dc_password_policy: {}
 # Example:
-# samba_dc_password_policy:
+# samba_ad_dc_password_policy:
 #   minimum_length: 12  # Minimum password length in characters.
 #   history_length: 24  # Number of previous passwords that cannot be reused.
 #   minimum_age_days: 0  # Integer days; 0 permits immediate changes.
@@ -139,12 +73,12 @@ samba_dc_password_policy: {}
 #   reversible_encryption: false  # Whether passwords are stored using reversible encryption.
 
 # Fine-grained password policies and their user or global-security-group assignments.
-# settings accepts the same options as samba_dc_password_policy and overrides its configured values.
+# settings accepts the same options as samba_ad_dc_password_policy and overrides its configured values.
 # Other settings inherit domain values on creation and remain unchanged on subsequent runs.
 # Removing an entry stops management; state: absent deletes the policy.
-samba_dc_password_settings: []
+samba_ad_dc_password_settings: []
 # Example:
-# samba_dc_password_settings:
+# samba_ad_dc_password_settings:
 #   - name: domain_admins  # Required password settings object (PSO) name.
 #     precedence: 10  # Required for present policies; lower numbers have higher priority.
 #     applies_to:  # Exact set of user or global security group account names or DNs; defaults to [].
@@ -154,52 +88,52 @@ samba_dc_password_settings: []
 #     state: present  # present (default) or absent.
 
 # Restrict anonymous SAMR and IPC access; 2 also denies anonymous IPC connections.
-samba_dc_restrict_anonymous: 2
+samba_ad_dc_restrict_anonymous: 2
 
 # Minimum SMB dialect accepted by the DC; SMB3 selects Samba's SMB3_11 alias.
-samba_dc_server_min_protocol: SMB3
+samba_ad_dc_server_min_protocol: SMB3
 
 # Require signatures on SMB connections to protect their integrity.
-samba_dc_server_signing: mandatory
+samba_ad_dc_server_signing: mandatory
 
 # Accepted NTLM authentication; Kerberos remains preferred and NTLMv1 is rejected.
-samba_dc_ntlm_auth: ntlmv2-only
+samba_ad_dc_ntlm_auth: ntlmv2-only
 
 # Require TLS for simple LDAP binds and signing or sealing for SASL over plain LDAP.
-samba_dc_ldap_require_strong_auth: "yes"
+samba_ad_dc_ldap_require_strong_auth: "yes"
 
 # Additional password hashes for external LDAP synchronization; disabled by default.
-samba_dc_password_hash_schemes: []
-# Example: samba_dc_password_hash_schemes: [CryptSHA256, CryptSHA512]
+samba_ad_dc_password_hash_schemes: []
+# Example: samba_ad_dc_password_hash_schemes: [CryptSHA256, CryptSHA512]
 
 # Enable LDAPS and StartTLS; disabling TLS does not permit unprotected LDAP binds.
-samba_dc_tls_enabled: true
+samba_ad_dc_tls_enabled: true
 
 # PEM private key on the DC; the default is generated by Samba relative to its private directory.
-samba_dc_tls_keyfile: tls/key.pem
-# Example: samba_dc_tls_keyfile: /etc/samba/tls/dc1.key
+samba_ad_dc_tls_keyfile: tls/key.pem
+# Example: samba_ad_dc_tls_keyfile: /etc/samba/tls/dc1.key
 
 # PEM server certificate and intermediate chain; the default is generated by Samba.
-samba_dc_tls_certfile: tls/cert.pem
-# Example: samba_dc_tls_certfile: /etc/samba/tls/dc1.crt
+samba_ad_dc_tls_certfile: tls/cert.pem
+# Example: samba_ad_dc_tls_certfile: /etc/samba/tls/dc1.crt
 
 # PEM CA bundle on the DC; the default is generated by Samba.
-samba_dc_tls_cafile: tls/ca.pem
-# Example: samba_dc_tls_cafile: /etc/samba/tls/ca.crt
+samba_ad_dc_tls_cafile: tls/ca.pem
+# Example: samba_ad_dc_tls_cafile: /etc/samba/tls/ca.crt
 
 # Optional existing PEM revocation list on the DC; empty leaves it unconfigured.
-samba_dc_tls_crlfile: ""
-# Example: samba_dc_tls_crlfile: /etc/samba/tls/ca.crl
+samba_ad_dc_tls_crlfile: ""
+# Example: samba_ad_dc_tls_crlfile: /etc/samba/tls/ca.crl
 
 # Optional existing DH parameter file on the DC; empty uses GnuTLS defaults.
-samba_dc_tls_dh_params_file: ""
-# Example: samba_dc_tls_dh_params_file: /etc/samba/tls/dhparams.pem
+samba_ad_dc_tls_dh_params_file: ""
+# Example: samba_ad_dc_tls_dh_params_file: /etc/samba/tls/dhparams.pem
 
 # GnuTLS cipher policy with TLS 1.2 and 1.3 only and at least 128-bit cipher security.
-samba_dc_tls_priority: SECURE128:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2
+samba_ad_dc_tls_priority: SECURE128:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2
 
 # Audit authentication including anonymous sessions, directory changes, and transaction outcomes.
-samba_dc_log_level: >-
+samba_ad_dc_log_level: >-
   1
   auth_json_audit:5@/var/log/samba/auth_json_audit.log
   dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log
@@ -212,13 +146,13 @@ samba_dc_log_level: >-
   dns:2@/var/log/samba/dns.log
 
 # Maximum size in KiB per Samba log before rotation to one .old file; 0 is unlimited.
-samba_dc_max_log_size: 10000
+samba_ad_dc_max_log_size: 10000
 
 # All successful VFS operations, including reads, ACL changes, and newly supported operations.
-samba_dc_audit_success: [all]
+samba_ad_dc_audit_success: [all]
 
 # All failed VFS operations, including denied reads, ACL changes, and metadata access.
-samba_dc_audit_failure: [all]
+samba_ad_dc_audit_failure: [all]
 
 # Record the requested Windows security descriptor in SDDL when clients change ACLs.
-samba_dc_audit_log_secdesc: true
+samba_ad_dc_audit_log_secdesc: true

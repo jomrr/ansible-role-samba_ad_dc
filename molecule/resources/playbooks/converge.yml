@@ -1,9 +1,35 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: molecule/resources/playbooks/converge.yml
 
-- name: SAMBA_DC | Converge the first domain controller
-  hosts: all
+- name: SAMBA_AD_DC | Converge the first domain controller
+  hosts: samba_ad_dc_sources
+  gather_facts: true
+  roles:
+    - role: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+
+  module_defaults:
+    group/jomrr.samba.all:
+      server: dc1.ad.example.test
+      realm: '{{ samba_ad_dc_realm }}'
+      bind_username: Administrator
+      bind_password: '{{ samba_ad_dc_admin_password }}'
+  post_tasks:
+    - name: SAMBA_AD_DC | Create the authentication and replication test account
+      jomrr.samba.samba_user:
+        username: moleculereader
+        password: Molecule-Only-Reader1!
+        update_password: on_create
+      no_log: true
+
+    - name: SAMBA_AD_DC | Create a group change for the audit fixture
+      jomrr.samba.samba_group:
+        name: molecule-audit-group
+        members:
+          - moleculereader
+
+- name: SAMBA_AD_DC | Converge the additional domain controller
+  hosts: samba_ad_dc_joiners
   gather_facts: true
   roles:
     - role: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"

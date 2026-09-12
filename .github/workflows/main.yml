@@ -1,5 +1,5 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: .github/workflows/main.yml
 
 name: main full gate
@@ -50,23 +50,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: samba_dc-almalinux-latest
+          - name: samba_ad_dc-almalinux-latest
             uns: jomrr
             img: almalinux
             tag: latest
-          - name: samba_dc-debian-latest
+          - name: samba_ad_dc-debian-latest
             uns: jomrr
             img: debian
             tag: latest
-          - name: samba_dc-fedora-latest
+          - name: samba_ad_dc-fedora-latest
             uns: jomrr
             img: fedora
             tag: latest
-          - name: samba_dc-opensuse-tumbleweed-latest
+          - name: samba_ad_dc-opensuse-tumbleweed-latest
             uns: jomrr
             img: opensuse-tumbleweed
             tag: latest
-          - name: samba_dc-ubuntu-latest
+          - name: samba_ad_dc-ubuntu-latest
             uns: jomrr
             img: ubuntu
             tag: latest

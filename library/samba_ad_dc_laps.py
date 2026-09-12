@@ -10,7 +10,7 @@ from uuid import UUID
 from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = r"""
-module: samba_dc_laps
+module: samba_ad_dc_laps
 short_description: Prepare the Windows LAPS schema on a Samba AD DC
 description:
   - Creates and reconciles the Windows LAPS attributes and encrypted-password property set.
@@ -30,8 +30,8 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_DC | Prepare the Windows LAPS schema
-  samba_dc_laps:
+- name: SAMBA_AD_DC | Prepare the Windows LAPS schema
+  samba_ad_dc_laps:
     configfile: /etc/samba/smb.conf
 """
 

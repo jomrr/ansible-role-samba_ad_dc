@@ -1,109 +1,104 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: molecule/resources/playbooks/side_effect.yml
 
-- name: SAMBA_DC | Verify updates deletions and TLS and LAPS opt outs
-  hosts: all
+- name: SAMBA_AD_DC | Verify password policy updates and TLS and LAPS opt outs
+  hosts: samba_ad_dc_sources
   gather_facts: true
+  environment: &__samba_ad_dc_test_kdc_environment
+    KRB5_CONFIG: /tmp/molecule-dc-krb5.conf
   module_defaults:
-    samba_dc_test_objects:
+    group/jomrr.samba.all:
       server: dc1.ad.example.test
-      realm: "{{ samba_dc_realm }}"
+      realm: '{{ samba_ad_dc_realm }}'
       bind_username: Administrator
-      bind_password: "{{ samba_dc_admin_password }}"
+      bind_password: '{{ samba_ad_dc_admin_password }}'
+    samba_ad_dc_test_password_policies:
+      server: dc1.ad.example.test
+      realm: '{{ samba_ad_dc_realm }}'
+      bind_username: Administrator
+      bind_password: '{{ samba_ad_dc_admin_password }}'
   tasks:
-    - name: SAMBA_DC | Seed precise unmanaged policy values and an extra group member
-      samba_dc_test_objects:
+    - name: SAMBA_AD_DC | Seed precise unmanaged policy intervals
+      samba_ad_dc_test_password_policies:
         phase: seed
 
-    - name: SAMBA_DC | Preview updates and deletions in check mode
+    - name: SAMBA_AD_DC | Preview password policy updates and deletions
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
         apply:
           check_mode: true
-      vars: &__samba_dc_updated_inputs
-        samba_dc_tls_enabled: false
-        samba_dc_laps: false
-        samba_dc_group_members_purge: true
-        samba_dc_password_policy:
+      vars:
+        samba_ad_dc_password_policy: &__samba_ad_dc_updated_password_policy
           minimum_length: 13
           history_length: 25
           complexity: true
           reversible_encryption: false
-        samba_dc_ous:
-          - name: Molecule
-            path: DC=ad,DC=example,DC=test
-          - name: Staff
-            path: OU=Molecule,DC=ad,DC=example,DC=test
-            description: Updated staff OU
-          - name: Groups
-            path: OU=Molecule,DC=ad,DC=example,DC=test
-          - name: Retired
-            path: OU=Molecule,DC=ad,DC=example,DC=test
-            state: absent
-          - name: Children
-            path: OU=Retired,OU=Molecule,DC=ad,DC=example,DC=test
-            state: absent
-        samba_dc_users:
-          - username: molecule-managed
-            path: OU=Molecule,DC=ad,DC=example,DC=test
-            display_name: Updated managed user
-            enabled: false
-          - username: molecule-retired
-            state: absent
-        samba_dc_groups:
-          - name: molecule-parent-group
-            path: OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test
-            members:
-              - molecule-managed-group
-            members_purge: false
-          - name: molecule-managed-group
-            path: OU=Groups,OU=Molecule,DC=ad,DC=example,DC=test
-            members:
-              - moleculereader
-            description: Updated managed group
-          - name: molecule-scope-group
-            path: OU=Molecule,DC=ad,DC=example,DC=test
-            scope: domain_local
-            category: security
-            members:
-              - moleculereader
-          - name: molecule-retired-group
-            state: absent
-        samba_dc_password_settings:
+        samba_ad_dc_password_settings: &__samba_ad_dc_updated_password_settings
+
           - name: molecule-managed
             precedence: 5
             applies_to:
-              - molecule-managed
+              - moleculereader
             settings:
               minimum_length: 18
+
           - name: molecule-inherited
             precedence: 40
+
           - name: molecule-delete
             state: absent
 
-    - name: SAMBA_DC | Verify check mode preserved the seeded directory state
-      samba_dc_test_objects:
+    - name: SAMBA_AD_DC | Verify check mode preserved the seeded policies
+      samba_ad_dc_test_password_policies:
         phase: seeded
 
-    - name: SAMBA_DC | Apply updates deletions and the supported TLS and LAPS opt outs
+    - name: SAMBA_AD_DC | Apply password policy updates and TLS and LAPS opt outs
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
-      vars: *__samba_dc_updated_inputs
+      vars:
+        samba_ad_dc_tls_enabled: false
+        samba_ad_dc_laps: false
 
-    - name: SAMBA_DC | Verify updated objects deleted objects and exact policy values
-      samba_dc_test_objects:
+        samba_ad_dc_password_policy: *__samba_ad_dc_updated_password_policy
+        samba_ad_dc_password_settings: *__samba_ad_dc_updated_password_settings
+
+    - name: SAMBA_AD_DC | Verify updated deleted and inherited password policies
+      samba_ad_dc_test_password_policies:
         phase: updated
 
-    - name: SAMBA_DC | Verify Windows LAPS remains usable after opting out
-      samba_dc_test_laps:
+    - name: SAMBA_AD_DC | Verify Windows LAPS remains usable after opting out
+      samba_ad_dc_test_laps:
         server: dc1.ad.example.test
-        password: "{{ samba_dc_admin_password }}"
+        password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
-    - name: SAMBA_DC | Verify LDAPS is disabled
+    - name: SAMBA_AD_DC | Verify LDAPS is disabled
       ansible.builtin.wait_for:
         host: 127.0.0.1
         port: 636
         state: stopped
         timeout: 30
+
+    - name: SAMBA_AD_DC | Update the replication test account
+      jomrr.samba.samba_user:
+        username: moleculereader
+        description: Updated on the source DC
+
+- name: SAMBA_AD_DC | Verify subsequent changes replicate to the joined controller
+  hosts: samba_ad_dc_joiners
+  gather_facts: false
+  environment: *__samba_ad_dc_test_kdc_environment
+  tasks:
+    - name: SAMBA_AD_DC | Observe the account update on the joined DC
+      jomrr.samba.samba_user_info:
+        server: dc2.ad.example.test
+        realm: '{{ samba_ad_dc_realm }}'
+        bind_username: Administrator
+        bind_password: '{{ samba_ad_dc_admin_password }}'
+        username: moleculereader
+      register: __samba_ad_dc_replicated_updates
+      until: __samba_ad_dc_replicated_updates is succeeded and __samba_ad_dc_replicated_updates.users |
+        length == 1 and __samba_ad_dc_replicated_updates.users[0].description == 'Updated on the source DC'
+      retries: 60
+      delay: 2

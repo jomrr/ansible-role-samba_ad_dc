@@ -9,7 +9,7 @@ from pathlib import Path
 from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = r"""
-module: samba_dc_test_audit
+module: samba_ad_dc_test_audit
 short_description: Verify Samba DC audit coverage
 description:
   - Checks share operations, Windows ACLs, directory changes and authentication.
@@ -19,10 +19,10 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_DC | Verify share directory and authentication audit coverage
+- name: SAMBA_AD_DC | Verify share directory and authentication audit coverage
   become: true
   become_user: root
-  samba_dc_test_audit:
+  samba_ad_dc_test_audit:
 """
 
 LOG_DIR = Path("/var/log/samba")

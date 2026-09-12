@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.samba_dc_password_policy import (
+from ansible.module_utils.samba_ad_dc_password_policy import (
     reconcile_domain,
     run_module,
     settings_argument_spec,
@@ -17,11 +17,11 @@ from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
 )
 
 DOCUMENTATION = r"""
-module: samba_dc_password_policy
+module: samba_ad_dc_password_policy
 short_description: Manage the domain password policy
 extends_documentation_fragment:
 - jomrr.samba.connection
-- samba_dc_password_policy
+- samba_ad_dc_password_policy
 description:
 - Manage the domain password policy through the native Samba LDAP bindings.
 - Supports idempotent updates and check mode.
@@ -35,7 +35,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Manage the domain password policy
-  samba_dc_password_policy:
+  samba_ad_dc_password_policy:
     server: dc1.ad.example.com
     realm: AD.EXAMPLE.COM
     bind_username: Administrator

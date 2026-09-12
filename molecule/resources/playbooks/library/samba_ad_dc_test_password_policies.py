@@ -1,7 +1,9 @@
 #!/usr/bin/python
-"""Exercise role-managed directory objects and password-policy updates."""
+"""Exercise domain password policies and fine-grained password settings."""
 
 import importlib
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from ansible.module_utils.basic import AnsibleModule
@@ -12,12 +14,12 @@ from ansible_collections.jomrr.samba.plugins.module_utils.samba_conn import (
 )
 
 DOCUMENTATION = r"""
-module: samba_dc_test_objects
-short_description: Exercise managed objects throughout the Molecule lifecycle
+module: samba_ad_dc_test_password_policies
+short_description: Exercise password policies throughout the Molecule lifecycle
 description:
-  - Verifies users, OUs, nested groups and their effective password policy.
+  - Verifies effective password policies and explicit PSO assignments.
   - Seeds precise LDAP intervals and checks preservation during role updates.
-  - Verifies requested deletions and changes on existing directory objects.
+  - Verifies policy changes, deletion, inheritance and check-mode preservation.
 extends_documentation_fragment:
   - jomrr.samba.connection
 options:
@@ -31,11 +33,11 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_DC | Verify managed directory objects
-  samba_dc_test_objects:
+- name: SAMBA_AD_DC | Verify password policies
+  samba_ad_dc_test_password_policies:
     server: dc1.ad.example.test
     bind_username: Administrator
-    bind_password: "{{ samba_dc_admin_password }}"
+    bind_password: "{{ samba_ad_dc_admin_password }}"
     phase: initial
 """
 
@@ -51,14 +53,6 @@ PSO_INTERVALS = {
 }
 
 ATTRIBUTES = [
-    "distinguishedName",
-    "displayName",
-    "description",
-    "member",
-    "uidNumber",
-    "gidNumber",
-    "groupType",
-    "userAccountControl",
     "msDS-ResultantPSO",
     "msDS-PasswordSettingsPrecedence",
     "msDS-PSOAppliesTo",
@@ -76,14 +70,71 @@ def expect(record: Any, attribute: str, values: list[str]) -> None:
         raise RuntimeError(f"Unexpected {attribute} on {record.dn}: {actual}")
 
 
-class DirectoryChecks:
+def ticket(module: Any, username: str, password: str, cache: str) -> None:
+    """Obtain a real ticket in a disposable cache and verify its encryption."""
+    environment = {"KRB5CCNAME": f"FILE:{cache}", "LC_ALL": "C"}
+    module.run_command(
+        ["kinit", f"{username}@{module.params['realm']}"],
+        data=password,
+        environ_update=environment,
+        check_rc=True,
+    )
+    _, output, _ = module.run_command(
+        ["klist", "-e"], environ_update=environment, check_rc=True
+    )
+    if (
+        "aes256-cts-hmac-sha1-96" not in output
+        and "aes128-cts-hmac-sha1-96" not in output
+    ):
+        raise RuntimeError("The issued Kerberos ticket does not use AES")
+
+
+def verify_password_settings(samdb: Any) -> None:
+    """An ordinary user inherits the domain policy and then the administrator PSO."""
+    ldb = importlib.import_module("ldb")
+    username = "molecule-policy"
+    expression = f"(sAMAccountName={username})"
+    samdb.newuser(username, "Ordinary-Pw1!")
+    user = samdb.search(expression=expression, attrs=["msDS-ResultantPSO"])[0]
+    try:
+        if "msDS-ResultantPSO" in user:
+            raise RuntimeError("The ordinary user unexpectedly has a PSO")
+        samdb.add_remove_group_members("Domain Admins", [username], True)
+        user = samdb.search(expression=expression, attrs=["msDS-ResultantPSO"])[0]
+        expected = ldb.Dn(
+            samdb,
+            f"CN=domain_admins,CN=Password Settings Container,CN=System,{samdb.domain_dn()}",
+        )
+        applied = user.get("msDS-ResultantPSO")
+        if applied is None or ldb.Dn(samdb, applied[0].decode()) != expected:
+            raise RuntimeError("The administrator group PSO is not effective")
+        try:
+            samdb.setpassword(
+                expression, "Different-Pw2!", force_change_at_next_login=False
+            )
+        except ldb.LdbError as error:
+            if "0000052D" not in str(error):
+                raise
+        else:
+            raise RuntimeError(
+                "The administrator PSO accepted a password shorter than 16"
+            )
+        samdb.setpassword(
+            expression,
+            "Molecule-Long-Admin-Password3!",
+            force_change_at_next_login=False,
+        )
+    finally:
+        samdb.delete(user.dn)
+
+
+class PolicyChecks:
     """Check the fixture's lifecycle using native directory queries."""
 
     def __init__(self, samdb: Any) -> None:
         self.samdb = samdb
         self.ldb = importlib.import_module("ldb")
         self.base = str(samdb.domain_dn())
-        self.root = f"OU=Molecule,{self.base}"
         self.policies = f"CN=Password Settings Container,CN=System,{self.base}"
 
     def read(self, dn: str) -> Any:
@@ -94,16 +145,6 @@ class DirectoryChecks:
             attrs=ATTRIBUTES,
         )
         return matches[0] if matches else None
-
-    def account(self, name: str) -> Any:
-        """Resolve a fixture account by its unique logon name."""
-        matches = self.samdb.search(
-            expression=f"(sAMAccountName={self.ldb.binary_encode(name)})",
-            attrs=ATTRIBUTES,
-        )
-        if len(matches) != 1:
-            raise RuntimeError(f"Expected one fixture account: {name}")
-        return matches[0]
 
     def seed(self) -> None:
         """Install valid intervals that the role's integer inputs cannot express."""
@@ -117,9 +158,6 @@ class DirectoryChecks:
                     value, self.ldb.FLAG_MOD_REPLACE, attribute
                 )
             self.samdb.modify(message)
-        self.samdb.add_remove_group_members(
-            "molecule-parent-group", ["moleculereader"], True
-        )
 
     def intervals(self) -> None:
         """Assert unmanaged domain and existing PSO intervals retain exact ticks."""
@@ -132,28 +170,15 @@ class DirectoryChecks:
                 expect(record, attribute, [value])
 
     def initial(self, *, seeded: bool = False) -> None:
-        """Verify creation, nesting and unchanged state after a check-mode run."""
-        managed = self.account("molecule-managed")
+        """Verify initial policies and check-mode preservation."""
+        expect(self.read(self.base), "minPwdLength", ["12"])
         expect(
-            managed, "distinguishedName", [f"CN=molecule-managed,OU=Staff,{self.root}"]
+            self.read(f"CN=molecule-managed,{self.policies}"),
+            "msDS-PSOAppliesTo",
+            [f"CN=Domain Admins,CN=Users,{self.base}"],
         )
-        expect(managed, "displayName", ["Initial managed user"])
-        expect(managed, "uidNumber", ["21001"])
-        expect(managed, "gidNumber", ["21000"])
-        expect(managed, "msDS-ResultantPSO", [f"CN=molecule-managed,{self.policies}"])
-        expect(self.read(f"OU=Staff,{self.root}"), "description", ["Initial staff OU"])
-        self.account("molecule-retired")
-        group = self.account("molecule-managed-group")
-        expect(group, "member", [str(managed.dn)])
-        expect(group, "gidNumber", ["21000"])
-        parent_members = [str(group.dn)]
         if seeded:
-            parent_members.append(str(self.account("moleculereader").dn))
             self.intervals()
-        expect(self.account("molecule-parent-group"), "member", parent_members)
-        variant = self.account("molecule-scope-group")
-        expect(variant, "groupType", ["8"])
-        expect(variant, "member", [str(group.dn)])
         expect(
             self.read(f"CN=molecule-managed,{self.policies}"),
             "msDS-PasswordSettingsPrecedence",
@@ -165,36 +190,10 @@ class DirectoryChecks:
             raise RuntimeError("Check mode created the inheritance test policy")
 
     def updated(self) -> None:
-        """Verify moves, membership policy overrides, deletions and PSO inheritance."""
+        """Verify assignment changes, deletion and exact inherited intervals."""
         self.intervals()
-        managed = self.account("molecule-managed")
-        reader = self.account("moleculereader")
-        expect(managed, "distinguishedName", [f"CN=molecule-managed,{self.root}"])
-        expect(managed, "displayName", ["Updated managed user"])
-        if not int(managed["userAccountControl"][0]) & 2:
-            raise RuntimeError("The managed account was not disabled")
-        group = self.account("molecule-managed-group")
-        expect(group, "member", [str(reader.dn)])
-        expect(group, "description", ["Updated managed group"])
-        expect(
-            self.account("molecule-parent-group"),
-            "member",
-            [str(group.dn), str(reader.dn)],
-        )
-        variant = self.account("molecule-scope-group")
-        expect(variant, "groupType", ["-2147483644"])
-        expect(variant, "distinguishedName", [f"CN=molecule-scope-group,{self.root}"])
-        expect(variant, "member", [str(reader.dn)])
-        expect(self.read(f"OU=Staff,{self.root}"), "description", ["Updated staff OU"])
-        retired = self.samdb.search(
-            expression=(
-                "(|(sAMAccountName=molecule-retired)"
-                "(sAMAccountName=molecule-retired-group))"
-            ),
-            attrs=[],
-        )
-        if retired or self.read(f"OU=Retired,{self.root}") is not None:
-            raise RuntimeError("Retired accounts or their organizational units remain")
+        managed = self.read(f"CN=moleculereader,CN=Users,{self.base}")
+        expect(managed, "msDS-ResultantPSO", [f"CN=molecule-managed,{self.policies}"])
         if self.read(f"CN=molecule-delete,{self.policies}") is not None:
             raise RuntimeError("The deleted password policy remains")
         policy = self.read(f"CN=molecule-managed,{self.policies}")
@@ -225,7 +224,7 @@ def main() -> None:
             },
         }
     )
-    checks = DirectoryChecks(connect_samdb(module))
+    checks = PolicyChecks(connect_samdb(module))
     phase = module.params["phase"]
     try:
         if phase == "seed":
@@ -234,8 +233,18 @@ def main() -> None:
             checks.updated()
         else:
             checks.initial(seeded=phase == "seeded")
-    except (checks.ldb.LdbError, RuntimeError) as error:
-        module.fail_json(msg=f"Managed directory verification failed: {error}")
+            if phase == "initial":
+                verify_password_settings(checks.samdb)
+                with tempfile.TemporaryDirectory(
+                    prefix="samba-ad-dc-tickets-"
+                ) as temporary:
+                    cache = str(Path(temporary) / "ccache")
+                    ticket(
+                        module, "Administrator", module.params["bind_password"], cache
+                    )
+                    ticket(module, "moleculereader", "Molecule-Only-Reader1!", cache)
+    except (checks.ldb.LdbError, RuntimeError, OSError) as error:
+        module.fail_json(msg=f"Password policy verification failed: {error}")
     else:
         module.exit_json(changed=phase == "seed")
 

@@ -1,12 +1,12 @@
 ---
-# role: samba_dc
+# role: samba_ad_dc
 # file: handlers/main.yml
 
-- name: SAMBA_DC | Restart the domain controller
+- name: SAMBA_AD_DC | Restart the domain controller
   become: true
   become_user: root
   ansible.builtin.systemd_service:
-    name: "{{ __samba_dc_service }}"
+    name: "{{ __samba_ad_dc_service }}"
     masked: false
     state: restarted
   listen: restart domain controller
