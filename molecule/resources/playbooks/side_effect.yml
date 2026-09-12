@@ -100,5 +100,6 @@
       register: __samba_ad_dc_replicated_updates
       until: __samba_ad_dc_replicated_updates is succeeded and __samba_ad_dc_replicated_updates.users |
         length == 1 and __samba_ad_dc_replicated_updates.users[0].description == 'Updated on the source DC'
-      retries: 60
-      delay: 2
+      # Allow Samba's 300-second DRS cycle plus scheduling time after the source restart.
+      retries: 72
+      delay: 5

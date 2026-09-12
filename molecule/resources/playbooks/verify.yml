@@ -461,5 +461,6 @@
       register: __samba_ad_dc_reverse_replication
       until: __samba_ad_dc_reverse_replication is succeeded and __samba_ad_dc_reverse_replication.ous |
         length == 1
-      retries: 60
-      delay: 2
+      # Allow Samba's 300-second DRS cycle plus scheduling time after topology changes.
+      retries: 72
+      delay: 5
