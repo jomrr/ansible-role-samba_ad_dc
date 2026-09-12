@@ -22,10 +22,12 @@ domain controllers.
 - New AD forest provisioning with jomrr.samba.samba_provision, internal DNS, and
   the generated Kerberos configuration.
 - Additional writable DC joins with jomrr.samba.samba_join_dc and internal DNS.
-- Optional Windows LAPS schema preparation on the schema FSMO owner.
+- Optional Windows LAPS schema preparation with
+  jomrr.samba.samba_schema_extension on the schema FSMO owner.
 - Disabling standalone SMB, NetBIOS and winbind services, and enabling the
   integrated AD DC service.
-- Domain password settings and fine-grained password policies.
+- Domain password settings and fine-grained policies with
+  jomrr.samba.samba_password_policy and jomrr.samba.samba_password_settings.
 
 ### Not Managed
 
@@ -58,7 +60,7 @@ collections:
   - name: community.general
     version: '>=12.0.0'
   - name: jomrr.samba
-    version: '>=1.0.1'
+    version: '>=2.0.0'
 ```
 
 ## Role Variables
@@ -580,8 +582,9 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   idmap setting, so it must match the existing domain's use of POSIX attributes.
 - Enable samba_ad_dc_laps on the schema FSMO owner to create or reconcile the
   seven `msLAPS-*` attributes, the encrypted-password property set, and
-  computer-class membership using native Samba bindings. Schema updates are
-  enabled only for that connection. Legacy `ms-Mcs-*` LAPS is not configured.
+  computer-class membership with jomrr.samba.samba_schema_extension. Schema
+  updates are enabled only for that connection. Legacy `ms-Mcs-*` LAPS is not
+  configured.
 - LAPS schema extensions are permanent and replicate forest-wide; back up the
   domain before enabling them. Disabling samba_ad_dc_laps stops schema
   management and preserves attributes, passwords, OU permissions, and client

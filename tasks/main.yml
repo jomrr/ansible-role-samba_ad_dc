@@ -11,8 +11,8 @@
 - name: SAMBA_AD_DC | Prepare the Windows LAPS schema
   become: true
   become_user: root
-  samba_ad_dc_laps:
-    configfile: "{{ __samba_ad_dc_config }}"
+  jomrr.samba.samba_schema_extension:
+    extension: laps
   when: samba_ad_dc_laps | bool
   notify: restart domain controller
 
@@ -31,9 +31,8 @@
 - name: SAMBA_AD_DC | Configure domain password policies
   ansible.builtin.import_tasks: passwords.yml
   module_defaults:
-    samba_ad_dc_password_policy: &__samba_ad_dc_connection
+    group/jomrr.samba.all:
       server: "{{ samba_ad_dc_hostname }}.{{ samba_ad_dc_realm | lower }}"
       realm: "{{ samba_ad_dc_realm | upper }}"
       bind_username: Administrator
       bind_password: "{{ samba_ad_dc_admin_password }}"
-    samba_ad_dc_password_settings: *__samba_ad_dc_connection
