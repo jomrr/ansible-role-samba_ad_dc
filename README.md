@@ -59,6 +59,8 @@ collections:
     version: '>=3.0.0'
   - name: community.general
     version: '>=12.0.0'
+  - name: containers.podman
+    version: '>=1.20.0'
   - name: jomrr.samba
     version: '>=2.0.0'
 ```
