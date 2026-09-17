@@ -3,8 +3,8 @@
 ![GitHub](https://img.shields.io/github/license/jomrr/ansible-role-samba_ad_dc)
 ![GitHub last commit](https://img.shields.io/github/last-commit/jomrr/ansible-role-samba_ad_dc)
 ![GitHub issues](https://img.shields.io/github/issues-raw/jomrr/ansible-role-samba_ad_dc)
-[![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_ad_dc/dev.yml?branch=dev&event=push&label=dev)](https://github.com/jomrr/ansible-role-samba_ad_dc/actions/workflows/dev.yml?query=branch%3Adev)
-[![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_ad_dc/main.yml?branch=main&event=push&label=main)](https://github.com/jomrr/ansible-role-samba_ad_dc/actions/workflows/main.yml?query=branch%3Amain)
+[![dev](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_ad_dc/dev.yml?branch=dev&label=dev)](https://github.com/jomrr/ansible-role-samba_ad_dc/actions/workflows/dev.yml?query=branch%3Adev)
+[![main](https://img.shields.io/github/actions/workflow/status/jomrr/ansible-role-samba_ad_dc/main.yml?branch=main&label=main)](https://github.com/jomrr/ansible-role-samba_ad_dc/actions/workflows/main.yml?query=branch%3Amain)
 
 Ansible role for provisioning, joining, and running Samba Active Directory
 domain controllers.
