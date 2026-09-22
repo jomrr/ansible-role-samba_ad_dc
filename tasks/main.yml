@@ -31,6 +31,12 @@
     enabled: true
     state: started
 
+- name: SAMBA_AD_DC | Wait for the domain controller LDAP listener
+  ansible.builtin.wait_for:
+    host: "{{ samba_ad_dc_hostname }}.{{ samba_ad_dc_realm | lower }}"
+    port: 389
+    timeout: 60
+
 - name: SAMBA_AD_DC | Configure domain password policies
   ansible.builtin.import_tasks: passwords.yml
   module_defaults:
