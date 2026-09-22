@@ -2,7 +2,7 @@
 # role: samba_ad_dc
 # file: molecule/resources/playbooks/side_effect.yml
 
-- name: SAMBA_AD_DC | Verify password policy updates and TLS and LAPS opt outs
+- name: SAMBA_AD_DC | Verify password policy updates and TLS and schema opt outs
   hosts: samba_ad_dc_sources
   gather_facts: true
   environment: &__samba_ad_dc_test_kdc_environment
@@ -53,12 +53,12 @@
       samba_ad_dc_test_password_policies:
         phase: seeded
 
-    - name: SAMBA_AD_DC | Apply password policy updates and TLS and LAPS opt outs
+    - name: SAMBA_AD_DC | Apply password policy updates and TLS and schema opt outs
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
         samba_ad_dc_tls_enabled: false
-        samba_ad_dc_laps: false
+        samba_ad_dc_schema_extensions: []
 
         samba_ad_dc_password_policy: *__samba_ad_dc_updated_password_policy
         samba_ad_dc_password_settings: *__samba_ad_dc_updated_password_settings
@@ -71,6 +71,13 @@
       samba_ad_dc_test_laps:
         server: dc1.ad.example.test
         password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true
+
+    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility remain usable after opting out
+      samba_ad_dc_test_schema:
+        server: dc1.ad.example.test
+        bind_username: Administrator
+        bind_password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
     - name: SAMBA_AD_DC | Verify LDAPS is disabled
@@ -103,3 +110,16 @@
       # Allow Samba's 300-second DRS cycle plus scheduling time after the source restart.
       retries: 72
       delay: 5
+
+    - name: SAMBA_AD_DC | Verify Windows LAPS remains usable on the joined DC after opting out
+      samba_ad_dc_test_laps:
+        server: dc2.ad.example.test
+        password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true
+
+    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility remain usable on the joined DC after opting out
+      samba_ad_dc_test_schema:
+        server: dc2.ad.example.test
+        bind_username: Administrator
+        bind_password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true

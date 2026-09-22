@@ -250,6 +250,13 @@
         password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
+    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility schema
+      samba_ad_dc_test_schema:
+        server: dc1.ad.example.test
+        bind_username: Administrator
+        bind_password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true
+
     - name: SAMBA_AD_DC | Exercise Kerberos rejection of an unknown principal
       ansible.builtin.command:
         argv:
@@ -405,6 +412,19 @@
       until: __samba_ad_dc_joined_account is succeeded and __samba_ad_dc_joined_account.users | length == 1
       retries: 30
       delay: 2
+
+    - name: SAMBA_AD_DC | Verify Windows LAPS on the joined DC
+      samba_ad_dc_test_laps:
+        server: dc2.ad.example.test
+        password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true
+
+    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility on the joined DC
+      samba_ad_dc_test_schema:
+        server: dc2.ad.example.test
+        bind_username: Administrator
+        bind_password: "{{ samba_ad_dc_admin_password }}"
+      no_log: true
 
     - name: SAMBA_AD_DC | Verify the joined DC serves trusted LDAPS
       become: true

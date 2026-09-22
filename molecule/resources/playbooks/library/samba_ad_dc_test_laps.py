@@ -4,6 +4,7 @@
 import importlib
 import json
 from typing import Any
+from uuid import uuid4
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -55,7 +56,8 @@ def verify(server: str, password: str) -> None:
     ldb = importlib.import_module("ldb")
     administrator = connect(server, "Administrator", password)
     reader = connect(server, "moleculereader", "Molecule-Only-Reader1!")
-    computer_dn = f"CN=molecule-laps,CN=Computers,{administrator.domain_dn()}"
+    account = f"molecule-laps-{uuid4().hex[:6]}"
+    computer_dn = f"CN={account},CN=Computers,{administrator.domain_dn()}"
     expiration = b"134400000000000000"
     values = {
         "msLAPS-PasswordExpirationTime": [expiration],
@@ -81,7 +83,7 @@ def verify(server: str, password: str) -> None:
         {
             "dn": computer_dn,
             "objectClass": "computer",
-            "sAMAccountName": "molecule-laps$",
+            "sAMAccountName": f"{account}$",
             "userAccountControl": "4096",
             **values,
         }

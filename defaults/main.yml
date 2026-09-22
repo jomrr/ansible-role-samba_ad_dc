@@ -37,8 +37,10 @@ samba_ad_dc_function_level: "2016"
 # Enable RFC2307 POSIX attributes during provisioning and their use by the DC.
 samba_ad_dc_use_rfc2307: true
 
-# Prepare the Windows LAPS schema; disabling preserves any existing schema extension.
-samba_ad_dc_laps: false
+# Schema extensions to manage on the schema master; removing entries preserves existing schema.
+# Choices: laps, sshpublickey, ldapcompat
+samba_ad_dc_schema_extensions: []
+# Example: samba_ad_dc_schema_extensions: [laps, sshpublickey, ldapcompat]
 
 # Upstream DNS server addresses; an empty list disables external DNS forwarding.
 samba_ad_dc_dns_forwarders: []

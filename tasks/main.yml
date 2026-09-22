@@ -8,12 +8,15 @@
 - name: SAMBA_AD_DC | Initialize the domain controller
   ansible.builtin.import_tasks: initialize.yml
 
-- name: SAMBA_AD_DC | Prepare the Windows LAPS schema
+- name: SAMBA_AD_DC | Manage schema extensions
   become: true
   become_user: root
   jomrr.samba.samba_schema_extension:
-    extension: laps
-  when: samba_ad_dc_laps | bool
+    extension: "{{ __samba_ad_dc_schema_extension }}"
+  loop: "{{ samba_ad_dc_schema_extensions }}"
+  loop_control:
+    loop_var: __samba_ad_dc_schema_extension
+    label: "{{ __samba_ad_dc_schema_extension }}"
   notify: restart domain controller
 
 - name: SAMBA_AD_DC | Apply pending configuration changes

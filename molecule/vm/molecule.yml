@@ -36,7 +36,10 @@ provisioner:
         samba_ad_dc_realm: "AD.EXAMPLE.TEST"
         samba_ad_dc_domain: "EXAMPLE"
         samba_ad_dc_hostname: "dc1"
-        samba_ad_dc_laps: true
+        samba_ad_dc_schema_extensions:
+          - "laps"
+          - "sshpublickey"
+          - "ldapcompat"
         samba_ad_dc_rpc_dynamic_port_range: "50000-55000"
         samba_ad_dc_admin_password: "Molecule-Only-Adm1n!"
         samba_ad_dc_tls_keyfile: "/etc/samba/tls/dc1.key"
@@ -48,7 +51,7 @@ provisioner:
         samba_ad_dc_hostname: "dc2"
         samba_ad_dc_join_server: "dc1.ad.example.test"
         samba_ad_dc_join_site: "Default-First-Site-Name"
-        samba_ad_dc_laps: false
+        samba_ad_dc_schema_extensions: []
         samba_ad_dc_tls_keyfile: "tls/key.pem"
         samba_ad_dc_tls_certfile: "tls/cert.pem"
         samba_ad_dc_tls_cafile: "tls/ca.pem"

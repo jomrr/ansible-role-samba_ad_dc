@@ -22,8 +22,8 @@ domain controllers.
 - New AD forest provisioning with jomrr.samba.samba_provision, internal DNS, and
   the generated Kerberos configuration.
 - Additional writable DC joins with jomrr.samba.samba_join_dc and internal DNS.
-- Optional Windows LAPS schema preparation with
-  jomrr.samba.samba_schema_extension on the schema FSMO owner.
+- Optional Windows LAPS, OpenSSH public key, and LDAP compatibility schema
+  extensions.
 - Disabling standalone SMB, NetBIOS and winbind services, and enabling the
   integrated AD DC service.
 - Domain password settings and fine-grained policies with
@@ -150,17 +150,17 @@ Default:
 samba_ad_dc_use_rfc2307: true
 ```
 
-### `samba_ad_dc_laps`
+### `samba_ad_dc_schema_extensions`
 
-Type: `bool`. Required: `false`.
+Type: `list`. Required: `false`.
 
-Prepare the Windows LAPS schema; OU permissions and client policies are
-configured separately. Disabling preserves existing schema extensions.
+Schema extensions: laps (Windows LAPS), sshpublickey (OpenSSH keys), ldapcompat
+(LDAP compatibility).
 
 Default:
 
 ```yaml
-samba_ad_dc_laps: false
+samba_ad_dc_schema_extensions: []
 ```
 
 ### `samba_ad_dc_dns_forwarders`
@@ -491,13 +491,13 @@ samba_ad_dc_password_settings: []
 
 ## Check Mode
 
-Check mode is supported after provisioning or joining, including LAPS schema
-changes on the schema FSMO owner. A clean host cannot complete a dry run because
+Check mode is supported after provisioning or joining, including schema changes
+on the schema FSMO owner. A clean host cannot complete a dry run because
 packages, the AD database, and krb5.conf do not yet exist.
 
 ## Service Behavior
 
-Changes to smb.conf or the LAPS schema restart the AD DC service.
+Changes to smb.conf or managed schema extensions restart the AD DC service.
 
 ## Security Notes
 
@@ -507,8 +507,7 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   password reader permissions.
 - Disable Windows LAPS password encryption: this Samba setup stores passwords as
   confidential JSON in AD. Encrypted backups, DSRM management, and rollback
-  detection are unsupported. Configure Windows client password rotation through
-  Group Policy as shown below.
+  detection are unsupported.
 - Defaults deny anonymous IPC access, require SMB signatures, and reject NTLMv1.
   samba_ad_dc_server_min_protocol uses SMB3, Samba's alias for SMB3_11,
   rejecting SMB 2.x, 3.0, and 3.0.2. Select an explicit dialect when older
@@ -582,16 +581,9 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   samba_ad_dc_function_level configures the local DC level and, for new forests,
   the domain and forest levels. samba_ad_dc_use_rfc2307 also controls the local
   idmap setting, so it must match the existing domain's use of POSIX attributes.
-- Enable samba_ad_dc_laps on the schema FSMO owner to create or reconcile the
-  seven `msLAPS-*` attributes, the encrypted-password property set, and
-  computer-class membership with jomrr.samba.samba_schema_extension. Schema
-  updates are enabled only for that connection. Legacy `ms-Mcs-*` LAPS is not
-  configured.
-- LAPS schema extensions are permanent and replicate forest-wide; back up the
-  domain before enabling them. Disabling samba_ad_dc_laps stops schema
-  management and preserves attributes, passwords, OU permissions, and client
-  policies. msLAPS-CurrentPasswordVersion does not enable Windows Server 2025
-  features.
+- Configure samba_ad_dc_schema_extensions only on the schema FSMO owner.
+  Extensions are permanent and replicate forest-wide; removing list entries
+  stops management without removing schema or stored values.
 - Realm, NetBIOS domain, and hostname identify the initialized DC and must not
   change afterwards. Provisioning settings do not migrate an existing domain or
   raise its functional level.
@@ -616,8 +608,8 @@ Changes to smb.conf or the LAPS schema restart the AD DC service.
   with 2 GiB RAM and two vCPUs. Vagrant needs a directory-backed pool for qcow2
   overlays; set SAMBA_AD_DC_VM_STORAGE_POOL when the default pool uses LVM.
 - VM tests cover DNS, Kerberos, SMB, TLS, audits, SELinux Enforcing, file
-  contexts, and Samba access denials, plus TLS and LAPS opt outs for first DCs.
-  Join integration is covered by the container pairs. The rootless UID
+  contexts, and Samba access denials, plus TLS and schema opt outs for first
+  DCs. Join integration is covered by the container pairs. The rootless UID
   workaround applies only to containers.
 - samba_ad_dc_password_policy manages only the specified domain settings. PSO
   item settings override those configured values; other fields are copied from
@@ -680,7 +672,7 @@ and time synchronization on dc2 must work before this play runs.
       samba_ad_dc_realm: AD.EXAMPLE.COM
       samba_ad_dc_domain: EXAMPLE
       samba_ad_dc_admin_password: "{{ vault_samba_ad_dc_admin_password }}"
-      samba_ad_dc_laps: false
+      samba_ad_dc_schema_extensions: []
 
 ```
 
@@ -704,30 +696,12 @@ samba_ad_dc_tls_cafile: /etc/samba/tls/ca.crt
 samba_ad_dc_tls_enabled: false
 ```
 
-### Prepare Windows LAPS
+### Prepare schema extensions
 
-After enabling schema preparation, delegate permissions per workstation OU
-from Windows with the LAPS PowerShell module:
-
-```powershell
-Import-Module LAPS
-$ou = "OU=Workstations,DC=ad,DC=example,DC=com"
-Set-LapsADComputerSelfPermission -Identity $ou
-Set-LapsADReadPasswordPermission -Identity $ou `
-  -AllowedPrincipals "EXAMPLE\LAPS-Readers"
-Set-LapsADResetPasswordPermission -Identity $ou `
-  -AllowedPrincipals "EXAMPLE\LAPS-Resetters"
-Find-LapsADExtendedRights -Identity $ou
-```
-
-Use approved groups and review inherited extended rights. Link a Windows
-LAPS GPO to the OU with Active Directory as the backup directory and password
-encryption disabled. Configure password settings and the local account,
-apply `gpupdate /force`, and verify retrieval with
-`Get-LapsADPassword -Identity <computer>` as an authorized reader.
+LAPS requires separate OU delegation and Windows client policies.
 
 ```yaml
-samba_ad_dc_laps: true
+samba_ad_dc_schema_extensions: [laps, sshpublickey, ldapcompat]
 ```
 
 ### Set domain and administrator password rules

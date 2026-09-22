@@ -58,11 +58,16 @@ argument_specs:
         default: true
         description: Enable RFC2307 POSIX attributes at provision time and their use by
           the DC.
-      samba_ad_dc_laps:
-        type: bool
-        default: false
-        description: Prepare the Windows LAPS schema; OU permissions and client policies
-          are configured separately. Disabling preserves existing schema extensions.
+      samba_ad_dc_schema_extensions:
+        type: list
+        elements: str
+        default: []
+        choices:
+          - laps
+          - sshpublickey
+          - ldapcompat
+        description: 'Schema extensions: laps (Windows LAPS), sshpublickey (OpenSSH keys),
+          ldapcompat (LDAP compatibility).'
       samba_ad_dc_dns_forwarders:
         type: list
         elements: str
