@@ -2,20 +2,7 @@
 # role: samba_ad_dc
 # file: tasks/repositories.yml
 
-- name: SAMBA_AD_DC | Install EPEL and repository configuration tools
-  become: true
-  become_user: root
-  ansible.builtin.package:
-    name: "{{ __samba_ad_dc_repository.packages }}"
-    state: present
-
-- name: SAMBA_AD_DC | Enable CRB for Samba dependencies
-  become: true
-  become_user: root
-  community.general.dnf_config_manager:
-    name: "{{ __samba_ad_dc_repository.dependency_repository }}"
-    state: enabled
-
+# Repair existing repo settings before any package operation reads their metadata.
 - name: SAMBA_AD_DC | Download the verified Tranquil IT signing key
   become: true
   become_user: root
@@ -45,6 +32,23 @@
     baseurl: "{{ __samba_ad_dc_repository.baseurl }}"
     gpgkey: "file://{{ __samba_ad_dc_repository.key_file }}"
     gpgcheck: true
+    # Tranquil IT does not sign repomd.xml; override global repo_gpgcheck as EPEL does.
+    # RPM signatures remain checked with the checksum- and fingerprint-verified key.
+    repo_gpgcheck: false
     enabled: true
     sslverify: true
     mode: "0644"
+
+- name: SAMBA_AD_DC | Install EPEL and repository configuration tools
+  become: true
+  become_user: root
+  ansible.builtin.package:
+    name: "{{ __samba_ad_dc_repository.packages }}"
+    state: present
+
+- name: SAMBA_AD_DC | Enable CRB for Samba dependencies
+  become: true
+  become_user: root
+  community.general.dnf_config_manager:
+    name: "{{ __samba_ad_dc_repository.dependency_repository }}"
+    state: enabled

@@ -596,8 +596,10 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
   packages and native Python bindings. EPEL supplies python3-setproctitle; CRB
   supplies additional dependencies. The signing key is checked by SHA-256
   checksum and OpenPGP fingerprint; package signature and HTTPS verification are
-  enabled. Other Enterprise Linux versions and architectures are unsupported; an
-  AlmaLinux image tagged latest must still use major version 10.
+  enabled. Metadata GPG verification is disabled only for this repository,
+  overriding global repo_gpgcheck because Tranquil IT publishes no
+  repomd.xml.asc. Other Enterprise Linux versions and architectures are
+  unsupported; an AlmaLinux image tagged latest must still use major version 10.
 - molecule test -s dev tests all five container platforms as first-DC and
   joined-DC pairs, including idempotency, check mode, Kerberos, and replication
   in both directions. The vm scenario covers SELinux on first DCs.
