@@ -2,6 +2,46 @@
 # role: samba_ad_dc
 # file: molecule/resources/playbooks/verify.yml
 
+- name: SAMBA_AD_DC | Verify domain controller listeners
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: SAMBA_AD_DC | Load default listener settings for verification
+      ansible.builtin.include_vars:
+        file: ../../../defaults/main.yml
+        name: __samba_ad_dc_test_defaults
+
+    - name: SAMBA_AD_DC | Read listening TCP and UDP sockets
+      become: true
+      become_user: root
+      community.general.listen_ports_facts:
+        command: ss
+
+    - name: SAMBA_AD_DC | Verify NetBIOS ports are closed
+      ansible.builtin.assert:
+        that:
+          - >-
+            (ansible_facts.tcp_listen + ansible_facts.udp_listen)
+            | selectattr('port', 'in', [137, 138, 139]) | list | length == 0
+
+    - name: SAMBA_AD_DC | Verify DNS LDAP and SMB bind only to the selected addresses
+      ansible.builtin.assert:
+        that:
+          - >-
+            ansible_facts[__samba_ad_dc_test_listener.protocol ~ '_listen']
+            | selectattr('port', 'equalto', __samba_ad_dc_test_listener.port)
+            | map(attribute='address') | unique | sort ==
+            (samba_ad_dc_interfaces | default(__samba_ad_dc_test_defaults.samba_ad_dc_interfaces)) | sort
+      loop:
+        - {protocol: tcp, port: 53}
+        - {protocol: udp, port: 53}
+        - {protocol: tcp, port: 389}
+        - {protocol: tcp, port: 445}
+      loop_control:
+        loop_var: __samba_ad_dc_test_listener
+        label: "{{ __samba_ad_dc_test_listener.protocol }}/{{ __samba_ad_dc_test_listener.port }}"
+      when: samba_ad_dc_bind_interfaces_only | default(__samba_ad_dc_test_defaults.samba_ad_dc_bind_interfaces_only)
+
 - name: SAMBA_AD_DC | Verify the running domain controller
   hosts: samba_ad_dc_sources
   gather_facts: true
@@ -141,17 +181,6 @@
         __samba_ad_dc_obsolete_tls.rc == 0 or
         ('alert protocol version' not in __samba_ad_dc_obsolete_tls.stderr and
          'unexpected eof while reading' not in __samba_ad_dc_obsolete_tls.stderr)
-
-    - name: SAMBA_AD_DC | Verify NetBIOS ports are closed
-      ansible.builtin.command:
-        argv:
-          - ss
-          - -H
-          - -lntu
-          - '( sport = :137 or sport = :138 or sport = :139 )'
-      register: __samba_ad_dc_netbios_listeners
-      changed_when: false
-      failed_when: __samba_ad_dc_netbios_listeners.stdout | length > 0
 
     - name: SAMBA_AD_DC | Exercise refusal of an unsigned DNS update
       ansible.builtin.command:

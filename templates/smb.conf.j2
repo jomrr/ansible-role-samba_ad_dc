@@ -8,6 +8,8 @@
     realm = {{ samba_ad_dc_realm | upper }}
     netbios name = {{ samba_ad_dc_hostname | upper }}
     dns forwarder = {{ samba_ad_dc_dns_forwarders | join(' ') }}
+    bind interfaces only = {{ samba_ad_dc_bind_interfaces_only | ternary('yes', 'no') }}
+    interfaces = {{ samba_ad_dc_interfaces | join(' ') }}
 
     rpc server dynamic port range = {{ samba_ad_dc_rpc_dynamic_port_range }}
     kdc supported enctypes = {{ samba_ad_dc_kdc_supported_enctypes | join(' ') }}

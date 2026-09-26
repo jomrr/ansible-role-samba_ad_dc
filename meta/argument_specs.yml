@@ -73,6 +73,17 @@ argument_specs:
         default: []
         description: Upstream DNS server addresses; an empty list disables external DNS
           forwarding.
+      samba_ad_dc_bind_interfaces_only:
+        type: bool
+        default: true
+        description: Bind Samba listeners only to the configured interfaces.
+      samba_ad_dc_interfaces:
+        type: list
+        elements: str
+        description: IP addresses or interface names. Defaults to 127.0.0.1 and the default
+          IPv4 address, plus ::1 when present on lo and the default IPv6 address when available.
+          An explicit list replaces the default and is required when no default IPv4 address
+          is available.
       samba_ad_dc_rpc_dynamic_port_range:
         type: str
         default: 49152-65535

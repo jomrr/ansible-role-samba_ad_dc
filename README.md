@@ -175,6 +175,27 @@ Default:
 samba_ad_dc_dns_forwarders: []
 ```
 
+### `samba_ad_dc_bind_interfaces_only`
+
+Type: `bool`. Required: `false`.
+
+Bind Samba listeners only to the configured interfaces.
+
+Default:
+
+```yaml
+samba_ad_dc_bind_interfaces_only: true
+```
+
+### `samba_ad_dc_interfaces`
+
+Type: `list`. Required: `false`.
+
+IP addresses or interface names. Defaults to 127.0.0.1 and the default IPv4
+address, plus ::1 when present on lo and the default IPv6 address when
+available. An explicit list replaces the default and is required when no default
+IPv4 address is available.
+
 ### `samba_ad_dc_rpc_dynamic_port_range`
 
 Type: `str`. Required: `false`.
@@ -501,6 +522,12 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
 
 ## Security Notes
 
+- Samba binds only to samba_ad_dc_interfaces by default: 127.0.0.1 and the
+  default IPv4 address, plus ::1 when present on lo and the default IPv6 address
+  when available. IPv6 loopback does not require an IPv6 default route. An
+  explicit list replaces these defaults, for example `samba_ad_dc_interfaces:
+  ['lo', 'eth0']`; it is required without a default IPv4 address. Set
+  samba_ad_dc_bind_interfaces_only to false to disable the listener restriction.
 - LAPS password attributes use the confidential, never-value-audit, and
   RODC-filtered flags (searchFlags 904); expiration time remains readable
   without password read permission. The role grants no domain-wide SELF or

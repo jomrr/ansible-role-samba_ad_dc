@@ -46,6 +46,18 @@ samba_ad_dc_schema_extensions: []
 samba_ad_dc_dns_forwarders: []
 # Example: samba_ad_dc_dns_forwarders: [192.0.2.53, 192.0.2.54]
 
+# Bind Samba listeners only to the configured interfaces.
+samba_ad_dc_bind_interfaces_only: true
+
+# Bind to IPv4 loopback and default address, adding available IPv6 loopback and default address.
+samba_ad_dc_interfaces: >-
+  {{ ['127.0.0.1', ansible_facts.default_ipv4.address]
+  + (ansible_facts.lo.ipv6 | default([]) | map(attribute='address') | select('equalto', '::1') | list)
+  + ([ansible_facts.default_ipv6.address] if ansible_facts.default_ipv6.address is defined else []) }}
+# Explicit lists replace the default; required when no default IPv4 address is available.
+# Example: samba_ad_dc_interfaces: ['lo', 'eth0']
+# Example: samba_ad_dc_interfaces: ['127.0.0.1', '192.0.2.10', '::1', '2001:db8::10']
+
 # Dynamic RPC server port range; align firewall rules with the selected range.
 samba_ad_dc_rpc_dynamic_port_range: 49152-65535
 # Example: samba_ad_dc_rpc_dynamic_port_range: 50000-55000
