@@ -34,7 +34,7 @@ samba_ad_dc_hostname: "{{ ansible_facts.hostname }}"
 samba_ad_dc_function_level: "2016"
 # Example: samba_ad_dc_function_level: "2008_R2"
 
-# Enable RFC2307 POSIX attributes during provisioning and their use by the DC.
+# Enable RFC2307 POSIX attributes during domain provisioning.
 samba_ad_dc_use_rfc2307: true
 
 # Schema extensions to manage on the schema master; removing entries preserves existing schema.

@@ -56,8 +56,7 @@ argument_specs:
       samba_ad_dc_use_rfc2307:
         type: bool
         default: true
-        description: Enable RFC2307 POSIX attributes at provision time and their use by
-          the DC.
+        description: Enable RFC2307 POSIX attributes during domain provisioning.
       samba_ad_dc_schema_extensions:
         type: list
         elements: str

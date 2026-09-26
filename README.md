@@ -142,7 +142,7 @@ samba_ad_dc_function_level: '2016'
 
 Type: `bool`. Required: `false`.
 
-Enable RFC2307 POSIX attributes at provision time and their use by the DC.
+Enable RFC2307 POSIX attributes during domain provisioning.
 
 Default:
 
@@ -579,8 +579,7 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
   service exists. The role installs the generated Kerberos configuration after
   initialization. Domain and forest function levels are inherited during a join;
   samba_ad_dc_function_level configures the local DC level and, for new forests,
-  the domain and forest levels. samba_ad_dc_use_rfc2307 also controls the local
-  idmap setting, so it must match the existing domain's use of POSIX attributes.
+  the domain and forest levels.
 - Configure samba_ad_dc_schema_extensions only on the schema FSMO owner.
   Extensions are permanent and replicate forest-wide; removing list entries
   stops management without removing schema or stored values.
