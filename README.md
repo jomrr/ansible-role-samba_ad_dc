@@ -36,7 +36,7 @@ domain controllers.
 - LAPS OU permissions, password reader/reset delegation, and Windows client
   Group Policy.
 - BIND DNS backends.
-- AD users, groups, OUs, and DNS records; managed by samba_ad_objects.
+- AD users, groups, OUs, and DNS records; managed by samba_ad.
 
 ## Requirements
 
@@ -647,8 +647,7 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
   effective policy with `samba-tool domain passwordsettings pso show-user
   <username>`.
 - PSO assignments require existing users or global security groups. Create
-  custom accounts with samba_ad_objects before assigning their password
-  policies.
+  custom accounts with samba_ad before assigning their password policies.
 
 ## Supported Platforms
 
