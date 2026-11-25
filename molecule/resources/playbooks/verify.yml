@@ -495,6 +495,15 @@
           - ls
       changed_when: false
 
+    - name: Verify SYSVOL audit messages reach the systemd journal
+      become: true
+      become_user: root
+      ansible.builtin.command:
+        argv: [journalctl, --boot, --no-pager, --output=cat, --grep=VOLUME=sysvol]
+      register: __samba_ad_dc_journal
+      changed_when: false
+      failed_when: __samba_ad_dc_journal.rc != 0
+
     - name: SAMBA_AD_DC | Create an OU through the joined DC
       jomrr.samba.samba_ou:
         name: JoinedReplica

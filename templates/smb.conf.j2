@@ -38,7 +38,7 @@
     tls dh params file = {{ samba_ad_dc_tls_dh_params_file }}
     tls priority = {{ samba_ad_dc_tls_priority }}
 
-    logging = file
+    logging = {{ samba_ad_dc_logging }}
     log level = {{ samba_ad_dc_log_level }}
     max log size = {{ samba_ad_dc_max_log_size }}
     full_audit:syslog = no

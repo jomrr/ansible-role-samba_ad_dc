@@ -400,6 +400,19 @@ Default:
 samba_ad_dc_tls_priority: SECURE128:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2
 ```
 
+### `samba_ad_dc_logging`
+
+Type: `str`. Required: `false`.
+
+Samba logging backends and optional thresholds, for example systemd or file
+systemd.
+
+Default:
+
+```yaml
+samba_ad_dc_logging: file
+```
+
 ### `samba_ad_dc_log_level`
 
 Type: `str`. Required: `false`.
@@ -564,28 +577,31 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
 - Extra userPassword hashes are disabled to avoid storing additional
   password-derived secrets. Enable CryptSHA256 or CryptSHA512 only for external
   LDAP integrations that require them.
+- samba_ad_dc_logging selects Samba logging backends and defaults to file. Set
+  it to systemd for the journal or `file systemd` for both. Backend availability
+  depends on the installed Samba build.
 - JSON level 5 records authentication and authorization failures and successes,
   Kerberos service access, anonymous sessions, and directory, group, and
   password changes. Transaction level 10 records commits, rollbacks, and commit
   failures; correlate transaction IDs to identify committed directory changes.
-- DNS level 2 records update requests and refused unsigned updates in
-  /var/log/samba/dns.log. DRS level 2 records completed GetNCChanges cycles and
-  secret-replication decisions in /var/log/samba/drs_repl.log, with limited
-  request context.
+- With the default file backend, DNS level 2 records update requests and refused
+  unsigned updates in /var/log/samba/dns.log. DRS level 2 records completed
+  GetNCChanges cycles and secret-replication decisions in
+  /var/log/samba/drs_repl.log, with limited request context.
 - SYSVOL and NETLOGON audit successful and failed VFS operations: connections,
   reads, writes, truncation, server-side copies, deletion, ACL/owner and
   metadata changes, links, and DFS modifications. The `all` selector includes
   new operations such as rename_stream and avoids removed names such as
   audit_file on Samba 4.24. Full audit precedes dfs_samba4 and acl_xattr to
   record the requested Windows ACL and final result, with SDDL enabled.
-- Share audits use Samba's file logger at /var/log/samba/sysvol_audit.log. The
-  prefix records IP, user, dialect, and share. SMB connections on port 445 do
-  not supply a NetBIOS machine name.
-- Samba rotates debug and JSON audit logs at samba_ad_dc_max_log_size KiB to one
-  .old file. Anonymous sessions and full VFS auditing include every read and
-  filesystem probe, increasing log volume and I/O. Restrict
-  samba_ad_dc_audit_success and samba_ad_dc_audit_failure to reduce volume;
-  operation names must match the installed Samba version.
+- With the default file backend, share audits go to
+  /var/log/samba/sysvol_audit.log. The prefix records IP, user, dialect, and
+  share. SMB connections on port 445 do not supply a NetBIOS machine name.
+- With file logging, Samba rotates debug and JSON audit logs at
+  samba_ad_dc_max_log_size KiB to one .old file. Anonymous sessions and full VFS
+  auditing include every read and filesystem probe, increasing log volume and
+  I/O. Restrict samba_ad_dc_audit_success and samba_ad_dc_audit_failure to
+  reduce volume; operation names must match the installed Samba version.
 - MIT Kerberos builds log ticket issuance and failures to
   /var/log/samba/mit_kdc.log through the provisioned kdc.conf. Samba's max log
   size does not apply to this file.
