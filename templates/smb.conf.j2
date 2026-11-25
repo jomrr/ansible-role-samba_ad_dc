@@ -2,50 +2,10 @@
 # file: {{ template_destpath }}
 
 [global]
-    server role = active directory domain controller
-    ad dc functional level = {{ samba_ad_dc_function_level }}
-    workgroup = {{ samba_ad_dc_domain | upper }}
-    realm = {{ samba_ad_dc_realm | upper }}
-    netbios name = {{ samba_ad_dc_hostname | upper }}
-    dns forwarder = {{ samba_ad_dc_dns_forwarders | join(' ') }}
-    bind interfaces only = {{ samba_ad_dc_bind_interfaces_only | ternary('yes', 'no') }}
-    interfaces = {{ samba_ad_dc_interfaces | join(' ') }}
-
-    rpc server dynamic port range = {{ samba_ad_dc_rpc_dynamic_port_range }}
-    kdc supported enctypes = {{ samba_ad_dc_kdc_supported_enctypes | join(' ') }}
-    kdc default domain supported enctypes = {{ samba_ad_dc_kdc_default_domain_supported_enctypes | join(' ') }}
-
-    restrict anonymous = {{ samba_ad_dc_restrict_anonymous }}
-    server min protocol = {{ samba_ad_dc_server_min_protocol }}
-    server signing = {{ samba_ad_dc_server_signing }}
-    ntlm auth = {{ samba_ad_dc_ntlm_auth }}
-    ldap server require strong auth = {{ samba_ad_dc_ldap_require_strong_auth }}
-    password hash userPassword schemes = {{ samba_ad_dc_password_hash_schemes | join(' ') }}
-
-    disable netbios = yes
-    smb ports = 445
-    server services = -nbt
-    printcap name = /dev/null
-    load printers = no
-    disable spoolss = yes
-    printing = bsd
-
-    tls enabled = {{ samba_ad_dc_tls_enabled | ternary('yes', 'no') }}
-    tls keyfile = {{ samba_ad_dc_tls_keyfile }}
-    tls certfile = {{ samba_ad_dc_tls_certfile }}
-    tls cafile = {{ samba_ad_dc_tls_cafile }}
-    tls crlfile = {{ samba_ad_dc_tls_crlfile }}
-    tls dh params file = {{ samba_ad_dc_tls_dh_params_file }}
-    tls priority = {{ samba_ad_dc_tls_priority }}
-
-    logging = {{ samba_ad_dc_logging }}
-    log level = {{ samba_ad_dc_log_level }}
-    max log size = {{ samba_ad_dc_max_log_size }}
-    full_audit:syslog = no
-    full_audit:success = {{ samba_ad_dc_audit_success | join(' ') }}
-    full_audit:failure = {{ samba_ad_dc_audit_failure | join(' ') }}
-    full_audit:log_secdesc = {{ samba_ad_dc_audit_log_secdesc | ternary('yes', 'no') }}
-    full_audit:prefix = IP=%I|USER=%u|PROTOCOL=%R|VOLUME=%S
+{% set journal_options = {'debug timestamp': false} if __samba_ad_dc_journal else {} %}
+{% for key, value in (__samba_ad_dc_global_defaults | combine(journal_options, samba_ad_dc_global_options)).items() %}
+    {{ key }} = {{ value | ternary('yes', 'no') if value is boolean else value }}
+{% endfor %}
 
 [sysvol]
     path = {{ __samba_ad_dc_sysvol_dir }}

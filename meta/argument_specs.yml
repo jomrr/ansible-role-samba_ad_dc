@@ -191,13 +191,14 @@ argument_specs:
           or file systemd.
       samba_ad_dc_log_level:
         type: str
-        default: 1 auth_json_audit:5@/var/log/samba/auth_json_audit.log dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log
-          dsdb_password_json_audit:5@/var/log/samba/dsdb_password_json_audit.log dsdb_group_json_audit:5@/var/log/samba/dsdb_group_json_audit.log
-          dsdb_transaction_json_audit:10@/var/log/samba/dsdb_transaction_json_audit.log
-          kerberos:3@/var/log/samba/kerberos.log drs_repl:2@/var/log/samba/drs_repl.log
-          full_audit:1@/var/log/samba/sysvol_audit.log dns:2@/var/log/samba/dns.log
-        description: Samba audit classes and destinations, including authentication, directory
-          changes, and SYSVOL writes.
+        description: Samba audit classes and thresholds. Defaults to per-class files with
+          file logging and the same JSON audit levels without paths for journal-only logging.
+          An explicit value replaces this setting.
+      samba_ad_dc_global_options:
+        type: dict
+        default: {}
+        description: Additional or overriding smb.conf [global] options. Use scalar values
+          and space-separated strings for Samba lists.
       samba_ad_dc_max_log_size:
         type: int
         default: 10000

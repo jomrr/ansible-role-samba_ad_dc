@@ -43,6 +43,8 @@ provisioner:
       samba_ad_dc_joiners:
         samba_ad_dc_mode: "join"
         samba_ad_dc_logging: "systemd"
+        samba_ad_dc_global_options:
+          full_audit:facility: "LOCAL5"
         samba_ad_dc_hostname: "dc2"
         samba_ad_dc_join_server: "dc1.ad.example.test"
         samba_ad_dc_join_site: "Default-First-Site-Name"

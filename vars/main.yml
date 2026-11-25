@@ -1,0 +1,67 @@
+---
+# role: samba_ad_dc
+# file: vars/main.yml
+
+__samba_ad_dc_log_backends: >-
+  {{ samba_ad_dc_global_options.get('logging', samba_ad_dc_logging) | regex_replace('[,;]', ' ') |
+     split | map('regex_replace', '[:@].*$', '') | list }}
+__samba_ad_dc_journal: "{{ 'systemd' in __samba_ad_dc_log_backends }}"
+
+__samba_ad_dc_file_log_level: >-
+  1
+  auth_json_audit:5@/var/log/samba/auth_json_audit.log
+  dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log
+  dsdb_password_json_audit:5@/var/log/samba/dsdb_password_json_audit.log
+  dsdb_group_json_audit:5@/var/log/samba/dsdb_group_json_audit.log
+  dsdb_transaction_json_audit:10@/var/log/samba/dsdb_transaction_json_audit.log
+  kerberos:3@/var/log/samba/kerberos.log
+  drs_repl:2@/var/log/samba/drs_repl.log
+  full_audit:1@/var/log/samba/sysvol_audit.log
+  dns:2@/var/log/samba/dns.log
+
+# The VFS module uses syslog when journaling. Keep class files only if the file backend is also active.
+__samba_ad_dc_journal_classes: "{{ __samba_ad_dc_file_log_level.split() | reject('match', '^full_audit:') | join(' ') }}"
+__samba_ad_dc_journal_log_level: >-
+  {{ __samba_ad_dc_journal_classes if 'file' in __samba_ad_dc_log_backends
+     else __samba_ad_dc_journal_classes | regex_replace('@[^ ]+', '') }}
+
+__samba_ad_dc_global_defaults:
+  server role: active directory domain controller
+  ad dc functional level: "{{ samba_ad_dc_function_level }}"
+  workgroup: "{{ samba_ad_dc_domain | upper }}"
+  realm: "{{ samba_ad_dc_realm | upper }}"
+  netbios name: "{{ samba_ad_dc_hostname | upper }}"
+  dns forwarder: "{{ samba_ad_dc_dns_forwarders | join(' ') }}"
+  bind interfaces only: "{{ samba_ad_dc_bind_interfaces_only }}"
+  interfaces: "{{ samba_ad_dc_interfaces | join(' ') }}"
+  rpc server dynamic port range: "{{ samba_ad_dc_rpc_dynamic_port_range }}"
+  kdc supported enctypes: "{{ samba_ad_dc_kdc_supported_enctypes | join(' ') }}"
+  kdc default domain supported enctypes: "{{ samba_ad_dc_kdc_default_domain_supported_enctypes | join(' ') }}"
+  restrict anonymous: "{{ samba_ad_dc_restrict_anonymous }}"
+  server min protocol: "{{ samba_ad_dc_server_min_protocol }}"
+  server signing: "{{ samba_ad_dc_server_signing }}"
+  ntlm auth: "{{ samba_ad_dc_ntlm_auth }}"
+  ldap server require strong auth: "{{ samba_ad_dc_ldap_require_strong_auth }}"
+  password hash userPassword schemes: "{{ samba_ad_dc_password_hash_schemes | join(' ') }}"
+  disable netbios: true
+  smb ports: "445"
+  server services: -nbt
+  printcap name: /dev/null
+  load printers: false
+  disable spoolss: true
+  printing: bsd
+  tls enabled: "{{ samba_ad_dc_tls_enabled }}"
+  tls keyfile: "{{ samba_ad_dc_tls_keyfile }}"
+  tls certfile: "{{ samba_ad_dc_tls_certfile }}"
+  tls cafile: "{{ samba_ad_dc_tls_cafile }}"
+  tls crlfile: "{{ samba_ad_dc_tls_crlfile }}"
+  tls dh params file: "{{ samba_ad_dc_tls_dh_params_file }}"
+  tls priority: "{{ samba_ad_dc_tls_priority }}"
+  logging: "{{ samba_ad_dc_logging }}"
+  log level: "{{ samba_ad_dc_log_level }}"
+  max log size: "{{ samba_ad_dc_max_log_size }}"
+  full_audit:syslog: "{{ __samba_ad_dc_journal }}"
+  full_audit:success: "{{ samba_ad_dc_audit_success | join(' ') }}"
+  full_audit:failure: "{{ samba_ad_dc_audit_failure | join(' ') }}"
+  full_audit:log_secdesc: "{{ samba_ad_dc_audit_log_secdesc }}"
+  full_audit:prefix: IP=%I|USER=%u|PROTOCOL=%R|VOLUME=%S

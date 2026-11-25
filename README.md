@@ -417,17 +417,21 @@ samba_ad_dc_logging: file
 
 Type: `str`. Required: `false`.
 
-Samba audit classes and destinations, including authentication, directory
-changes, and SYSVOL writes.
+Samba audit classes and thresholds. Defaults to per-class files with file
+logging and the same JSON audit levels without paths for journal-only logging.
+An explicit value replaces this setting.
+
+### `samba_ad_dc_global_options`
+
+Type: `dict`. Required: `false`.
+
+Additional or overriding smb.conf [global] options. Use scalar values and
+space-separated strings for Samba lists.
 
 Default:
 
 ```yaml
-samba_ad_dc_log_level: 1 auth_json_audit:5@/var/log/samba/auth_json_audit.log dsdb_json_audit:5@/var/log/samba/dsdb_json_audit.log
-  dsdb_password_json_audit:5@/var/log/samba/dsdb_password_json_audit.log dsdb_group_json_audit:5@/var/log/samba/dsdb_group_json_audit.log
-  dsdb_transaction_json_audit:10@/var/log/samba/dsdb_transaction_json_audit.log
-  kerberos:3@/var/log/samba/kerberos.log drs_repl:2@/var/log/samba/drs_repl.log
-  full_audit:1@/var/log/samba/sysvol_audit.log dns:2@/var/log/samba/dns.log
+samba_ad_dc_global_options: {}
 ```
 
 ### `samba_ad_dc_max_log_size`
@@ -578,8 +582,13 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
   password-derived secrets. Enable CryptSHA256 or CryptSHA512 only for external
   LDAP integrations that require them.
 - samba_ad_dc_logging selects Samba logging backends and defaults to file. Set
-  it to systemd for the journal or `file systemd` for both. Backend availability
-  depends on the installed Samba build.
+  it to systemd for the journal. JSON audit messages identify authentication and
+  directory events by their `type` field. Samba assigns the journal priority
+  from the event's debug level. Journal timestamps replace Samba's debug
+  headers. Samba's debug buffer can split JSON events of about 4 KiB or larger
+  across records. SYSVOL and NETLOGON use native syslog (`journalctl -t
+  smbd_audit`, priority notice). With `file systemd`, the JSON classes also
+  retain their file destinations and share audits use syslog.
 - JSON level 5 records authentication and authorization failures and successes,
   Kerberos service access, anonymous sessions, and directory, group, and
   password changes. Transaction level 10 records commits, rollbacks, and commit
@@ -717,6 +726,14 @@ and time synchronization on dc2 must work before this play runs.
       samba_ad_dc_admin_password: "{{ vault_samba_ad_dc_admin_password }}"
       samba_ad_dc_schema_extensions: []
 
+```
+
+### Override individual global options
+
+```yaml
+samba_ad_dc_global_options:
+  debug timestamp: false
+  full_audit:priority: INFO
 ```
 
 ### Narrow the dynamic RPC range
