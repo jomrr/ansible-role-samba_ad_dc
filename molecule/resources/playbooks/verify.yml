@@ -2,10 +2,26 @@
 # role: samba_ad_dc
 # file: molecule/resources/playbooks/verify.yml
 
-- name: SAMBA_AD_DC | Verify domain controller listeners
+- name: SAMBA_AD_DC | Verify system Kerberos configuration and DC listeners
   hosts: all
   gather_facts: true
   tasks:
+    - name: Obtain a ticket through DNS using the system default realm
+      ansible.builtin.command:
+        argv: [kinit, Administrator]
+        stdin: "{{ samba_ad_dc_admin_password }}"
+      environment:
+        KRB5CCNAME: FILE:/tmp/molecule-system-krb5cc
+      changed_when: false
+      no_log: true
+
+    - name: Verify libkrb5 uses the distribution policy's permitted encryption types
+      ansible.builtin.script:
+        cmd: ../scripts/check_krb5_policy.py
+        executable: "{{ ansible_facts.python.executable }}"
+      changed_when: false
+      when: ansible_facts.os_family in ['RedHat', 'Suse']
+
     - name: SAMBA_AD_DC | Load default listener settings for verification
       ansible.builtin.include_vars:
         file: ../../../defaults/main.yml

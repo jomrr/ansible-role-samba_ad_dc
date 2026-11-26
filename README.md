@@ -19,8 +19,7 @@ domain controllers.
 - Validated smb.conf with SYSVOL and NETLOGON shares.
 - SMB signing, strong LDAP authentication, optional TLS, and authentication,
   directory, and share auditing.
-- New AD forest provisioning with jomrr.samba.samba_provision, internal DNS, and
-  the generated Kerberos configuration.
+- New AD forest provisioning with jomrr.samba.samba_provision and internal DNS.
 - Additional writable DC joins with jomrr.samba.samba_join_dc and internal DNS.
 - Optional Windows LAPS, OpenSSH public key, and LDAP compatibility schema
   extensions.
@@ -521,8 +520,10 @@ samba_ad_dc_password_settings: []
   AlmaLinux repository.
 - `/etc/samba/smb.conf` Complete configuration; validated with testparm and
   backed up before replacement.
-- `/etc/krb5.conf` Provisioned Kerberos configuration; the existing file is
-  backed up.
+- `/etc/krb5.conf.d/50-samba-ad-dc.conf` Default realm, DNS KDC discovery, and
+  domain-to-realm mappings.
+- `/etc/krb5.conf` A missing includedir directive is added so Kerberos also
+  loads distribution policies and local snippets.
 - `/var/lib/samba` Domain databases, secrets, and SYSVOL.
 - `/var/log/samba` Root-only Samba logs, including authentication and SYSVOL
   audits.
@@ -531,11 +532,12 @@ samba_ad_dc_password_settings: []
 
 Check mode is supported after provisioning or joining, including schema changes
 on the schema FSMO owner. A clean host cannot complete a dry run because
-packages, the AD database, and krb5.conf do not yet exist.
+packages and the AD database do not yet exist.
 
 ## Service Behavior
 
-Changes to smb.conf or managed schema extensions restart the AD DC service.
+Changes to smb.conf, the Kerberos configuration, or managed schema extensions
+restart the AD DC service.
 
 ## Security Notes
 
@@ -622,14 +624,16 @@ Changes to smb.conf or managed schema extensions restart the AD DC service.
   new additional DC and supply samba_ad_dc_join_server as the existing DC's
   FQDN. samba_ad_dc_join_site optionally selects an existing AD site. Both modes
   use Administrator and samba_ad_dc_admin_password. The join uses Kerberos
-  authentication; DNS and Kerberos client prerequisites must work before the
-  role runs. A repeat join is an idempotent no-op; joining an already
-  initialized DC to another realm is refused.
+  authentication and discovers the KDC through AD DNS. A repeat join is an
+  idempotent no-op; joining an already initialized DC to another realm is
+  refused.
+- On Fedora and openSUSE with Samba 4.25.1 and MIT Kerberos, the join can stall
+  during DNS registration when the system crypto policy negotiates an AES-SHA2
+  subkey for Samba's signed DNS RPC.
 - Provision the first DC before running join mode on additional hosts. Configure
   the joiner's resolver to use an existing AD DNS server before the join; a
   resolver pointing only to itself cannot discover the domain before its DNS
-  service exists. The role installs the generated Kerberos configuration after
-  initialization. Domain and forest function levels are inherited during a join;
+  service exists. Domain and forest function levels are inherited during a join;
   samba_ad_dc_function_level configures the local DC level and, for new forests,
   the domain and forest levels.
 - Configure samba_ad_dc_schema_extensions only on the schema FSMO owner.

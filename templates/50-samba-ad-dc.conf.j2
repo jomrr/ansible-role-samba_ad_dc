@@ -1,0 +1,17 @@
+{{ ansible_managed | comment(prefix_count=0, postfix_count=0) }}
+# file: {{ template_destpath }}
+
+[libdefaults]
+    default_realm = {{ samba_ad_dc_realm | upper }}
+    dns_lookup_kdc = true
+    dns_lookup_realm = false
+
+[realms]
+    {{ samba_ad_dc_realm | upper }} = {
+        default_domain = {{ samba_ad_dc_realm | lower }}
+    }
+
+[domain_realm]
+    {{ samba_ad_dc_realm | lower }} = {{ samba_ad_dc_realm | upper }}
+    .{{ samba_ad_dc_realm | lower }} = {{ samba_ad_dc_realm | upper }}
+    {{ samba_ad_dc_hostname | lower }} = {{ samba_ad_dc_realm | upper }}

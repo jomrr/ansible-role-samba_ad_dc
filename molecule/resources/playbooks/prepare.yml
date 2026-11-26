@@ -201,7 +201,7 @@
           nameserver 127.0.0.1
           search ad.example.test
 
-- name: SAMBA_AD_DC | Prepare existing domain DNS and Kerberos for joining
+- name: SAMBA_AD_DC | Prepare joiners for the existing domain
   hosts: samba_ad_dc_joiners
   gather_facts: false
   tasks:
@@ -218,7 +218,7 @@
           nameserver {{ hostvars[__samba_ad_dc_test_source].ansible_facts.default_ipv4.address }}
           search ad.example.test
 
-    - name: SAMBA_AD_DC | Configure Kerberos discovery before joining
+    - name: Exercise upgrade from a Kerberos profile installed by the previous role
       become: true
       become_user: root
       ansible.builtin.copy:
@@ -231,3 +231,4 @@
               default_realm = {{ samba_ad_dc_realm }}
               dns_lookup_realm = false
               dns_lookup_kdc = true
+      when: ansible_facts.distribution == 'AlmaLinux'

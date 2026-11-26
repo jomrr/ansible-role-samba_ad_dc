@@ -15,6 +15,50 @@
     validate: "{{ __samba_ad_dc_validate }}"
   notify: restart domain controller
 
+- name: initialize | Create the Kerberos profile directory
+  become: true
+  become_user: root
+  ansible.builtin.file:
+    path: /etc/krb5.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: initialize | Configure the DC realm and Kerberos discovery
+  become: true
+  become_user: root
+  ansible.builtin.template:
+    src: 50-samba-ad-dc.conf.j2
+    dest: /etc/krb5.conf.d/50-samba-ad-dc.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: restart domain controller
+
+- name: initialize | Check for a local Kerberos profile
+  ansible.builtin.stat:
+    path: /etc/krb5.conf
+    follow: true
+    get_checksum: false
+  register: __samba_ad_dc_krb5_profile
+
+# With no local profile, openSUSE loads /usr/etc/krb5.conf, which already includes the directory.
+- name: initialize | Enable Kerberos snippets in the local profile
+  become: true
+  become_user: root
+  ansible.builtin.lineinfile:
+    path: /etc/krb5.conf
+    regexp: '^includedir[ \t]+/etc/krb5\.conf\.d/?[ \t]*$'
+    line: includedir /etc/krb5.conf.d/
+    insertbefore: BOF
+    create: true
+    mode: "{{ __samba_ad_dc_krb5_profile.stat.mode | default('0644') }}"
+    backup: true
+  when: __samba_ad_dc_krb5_profile.stat.exists or ansible_facts.os_family != 'Suse'
+  notify: restart domain controller
+
 - name: SAMBA_AD_DC | Provision the first controller of the new domain
   become: true
   become_user: root
@@ -45,16 +89,3 @@
     state: present
   when: samba_ad_dc_mode == 'join'
   no_log: true
-
-- name: SAMBA_AD_DC | Install the initialized Kerberos configuration
-  become: true
-  become_user: root
-  ansible.builtin.copy:
-    src: "{{ __samba_ad_dc_private_dir }}/krb5.conf"
-    dest: /etc/krb5.conf
-    remote_src: true
-    owner: root
-    group: root
-    mode: "0644"
-    backup: true
-  notify: restart domain controller
