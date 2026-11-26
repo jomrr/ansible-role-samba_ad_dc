@@ -3,7 +3,7 @@
 # file: tasks/repositories.yml
 
 # Repair existing repo settings before any package operation reads their metadata.
-- name: SAMBA_AD_DC | Download the verified Tranquil IT signing key
+- name: repositories | Download the verified Tranquil IT signing key
   become: true
   become_user: root
   ansible.builtin.get_url:
@@ -14,7 +14,7 @@
     group: root
     mode: "0644"
 
-- name: SAMBA_AD_DC | Trust the Tranquil IT package signing key
+- name: repositories | Trust the Tranquil IT package signing key
   become: true
   become_user: root
   ansible.builtin.rpm_key:
@@ -22,7 +22,7 @@
     fingerprint: "{{ __samba_ad_dc_repository.key_fingerprint }}"
     state: present
 
-- name: SAMBA_AD_DC | Enable signed Tranquil IT Samba packages
+- name: repositories | Enable signed Tranquil IT Samba packages
   become: true
   become_user: root
   ansible.builtin.yum_repository:
@@ -39,14 +39,14 @@
     sslverify: true
     mode: "0644"
 
-- name: SAMBA_AD_DC | Install EPEL and repository configuration tools
+- name: repositories | Install EPEL and repository configuration tools
   become: true
   become_user: root
   ansible.builtin.package:
     name: "{{ __samba_ad_dc_repository.packages }}"
     state: present
 
-- name: SAMBA_AD_DC | Enable CRB for Samba dependencies
+- name: repositories | Enable CRB for Samba dependencies
   become: true
   become_user: root
   community.general.dnf_config_manager:

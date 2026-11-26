@@ -9,7 +9,7 @@
   hosts: all
   gather_facts: true
   tasks:
-    - name: SAMBA_AD_DC | Verify SELinux remains Enforcing
+    - name: Verify SELinux remains Enforcing
       ansible.builtin.assert:
         that:
           - ansible_facts.selinux.status == 'enabled'
@@ -17,7 +17,7 @@
           - ansible_facts.selinux.config_mode == 'enforcing'
         quiet: true
 
-    - name: SAMBA_AD_DC | Verify Samba file contexts match the installed policy
+    - name: Verify Samba file contexts match the installed policy
       become: true
       become_user: root
       ansible.builtin.command:
@@ -31,7 +31,7 @@
           - /var/log/samba
       changed_when: false
 
-    - name: SAMBA_AD_DC | Reject Samba SELinux access denials since VM boot
+    - name: Reject Samba SELinux access denials since VM boot
       become: true
       become_user: root
       ansible.builtin.command:

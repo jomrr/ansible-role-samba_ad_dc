@@ -15,14 +15,14 @@
       bind_username: Administrator
       bind_password: '{{ samba_ad_dc_admin_password }}'
   post_tasks:
-    - name: SAMBA_AD_DC | Create the authentication and replication test account
+    - name: Create the authentication and replication test account
       jomrr.samba.samba_user:
         username: moleculereader
         password: Molecule-Only-Reader1!
         update_password: on_create
       no_log: true
 
-    - name: SAMBA_AD_DC | Create a group change for the audit fixture
+    - name: Create a group change for the audit fixture
       jomrr.samba.samba_group:
         name: molecule-audit-group
         members:

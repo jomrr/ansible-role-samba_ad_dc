@@ -19,11 +19,11 @@
       bind_username: Administrator
       bind_password: '{{ samba_ad_dc_admin_password }}'
   tasks:
-    - name: SAMBA_AD_DC | Seed precise unmanaged policy intervals
+    - name: Seed precise unmanaged policy intervals
       samba_ad_dc_test_password_policies:
         phase: seed
 
-    - name: SAMBA_AD_DC | Preview password policy updates and deletions
+    - name: Preview password policy updates and deletions
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
         apply:
@@ -49,11 +49,11 @@
           - name: molecule-delete
             state: absent
 
-    - name: SAMBA_AD_DC | Verify check mode preserved the seeded policies
+    - name: Verify check mode preserved the seeded policies
       samba_ad_dc_test_password_policies:
         phase: seeded
 
-    - name: SAMBA_AD_DC | Apply password policy updates and TLS and schema opt outs
+    - name: Apply password policy updates and TLS and schema opt outs
       ansible.builtin.include_role:
         name: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}"
       vars:
@@ -63,31 +63,31 @@
         samba_ad_dc_password_policy: *__samba_ad_dc_updated_password_policy
         samba_ad_dc_password_settings: *__samba_ad_dc_updated_password_settings
 
-    - name: SAMBA_AD_DC | Verify updated deleted and inherited password policies
+    - name: Verify updated deleted and inherited password policies
       samba_ad_dc_test_password_policies:
         phase: updated
 
-    - name: SAMBA_AD_DC | Verify Windows LAPS remains usable after opting out
+    - name: Verify Windows LAPS remains usable after opting out
       samba_ad_dc_test_laps:
         server: dc1.ad.example.test
         password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
-    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility remain usable after opting out
+    - name: Verify SSH keys and LDAP compatibility remain usable after opting out
       samba_ad_dc_test_schema:
         server: dc1.ad.example.test
         bind_username: Administrator
         bind_password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
-    - name: SAMBA_AD_DC | Verify LDAPS is disabled
+    - name: Verify LDAPS is disabled
       ansible.builtin.wait_for:
         host: 127.0.0.1
         port: 636
         state: stopped
         timeout: 30
 
-    - name: SAMBA_AD_DC | Update the replication test account
+    - name: Update the replication test account
       jomrr.samba.samba_user:
         username: moleculereader
         description: Updated on the source DC
@@ -97,7 +97,7 @@
   gather_facts: false
   environment: *__samba_ad_dc_test_kdc_environment
   tasks:
-    - name: SAMBA_AD_DC | Observe the account update on the joined DC
+    - name: Observe the account update on the joined DC
       jomrr.samba.samba_user_info:
         server: dc2.ad.example.test
         realm: '{{ samba_ad_dc_realm }}'
@@ -111,13 +111,13 @@
       retries: 72
       delay: 5
 
-    - name: SAMBA_AD_DC | Verify Windows LAPS remains usable on the joined DC after opting out
+    - name: Verify Windows LAPS remains usable on the joined DC after opting out
       samba_ad_dc_test_laps:
         server: dc2.ad.example.test
         password: "{{ samba_ad_dc_admin_password }}"
       no_log: true
 
-    - name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility remain usable on the joined DC after opting out
+    - name: Verify SSH keys and LDAP compatibility remain usable on the joined DC after opting out
       samba_ad_dc_test_schema:
         server: dc2.ad.example.test
         bind_username: Administrator

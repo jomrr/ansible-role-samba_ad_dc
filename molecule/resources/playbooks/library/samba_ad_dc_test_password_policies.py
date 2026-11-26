@@ -33,7 +33,7 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_AD_DC | Verify password policies
+- name: Verify password policies
   samba_ad_dc_test_password_policies:
     server: dc1.ad.example.test
     bind_username: Administrator

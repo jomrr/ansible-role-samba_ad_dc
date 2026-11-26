@@ -61,7 +61,7 @@ collections:
   - name: containers.podman
     version: '>=1.20.0'
   - name: jomrr.samba
-    version: '>=2.0.0'
+    version: '>=2.4.1'
 ```
 
 ## Role Variables
@@ -627,9 +627,6 @@ restart the AD DC service.
   authentication and discovers the KDC through AD DNS. A repeat join is an
   idempotent no-op; joining an already initialized DC to another realm is
   refused.
-- On Fedora and openSUSE with Samba 4.25.1 and MIT Kerberos, the join can stall
-  during DNS registration when the system crypto policy negotiates an AES-SHA2
-  subkey for Samba's signed DNS RPC.
 - Provision the first DC before running join mode on additional hosts. Configure
   the joiner's resolver to use an existing AD DNS server before the join; a
   resolver pointing only to itself cannot discover the domain before its DNS

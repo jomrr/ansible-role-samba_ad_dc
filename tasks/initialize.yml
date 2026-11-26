@@ -2,7 +2,7 @@
 # role: samba_ad_dc
 # file: tasks/initialize.yml
 
-- name: SAMBA_AD_DC | Install the validated domain controller configuration
+- name: initialize | Install the validated domain controller configuration
   become: true
   become_user: root
   ansible.builtin.template:
@@ -59,7 +59,7 @@
   when: __samba_ad_dc_krb5_profile.stat.exists or ansible_facts.os_family != 'Suse'
   notify: restart domain controller
 
-- name: SAMBA_AD_DC | Provision the first controller of the new domain
+- name: initialize | Provision the first controller of the new domain
   become: true
   become_user: root
   jomrr.samba.samba_provision:
@@ -74,7 +74,7 @@
   when: samba_ad_dc_mode == 'provision'
   no_log: true
 
-- name: SAMBA_AD_DC | Join the existing domain as an additional controller
+- name: initialize | Join the existing domain as an additional controller
   become: true
   become_user: root
   jomrr.samba.samba_join_dc:

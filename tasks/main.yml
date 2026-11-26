@@ -2,13 +2,13 @@
 # role: samba_ad_dc
 # file: tasks/main.yml
 
-- name: SAMBA_AD_DC | Install domain controller packages
+- name: Install domain controller packages
   ansible.builtin.import_tasks: install.yml
 
-- name: SAMBA_AD_DC | Initialize the domain controller
+- name: Initialize the domain controller
   ansible.builtin.import_tasks: initialize.yml
 
-- name: SAMBA_AD_DC | Manage schema extensions
+- name: Manage schema extensions
   become: true
   become_user: root
   jomrr.samba.samba_schema_extension:
@@ -19,10 +19,10 @@
     label: "{{ __samba_ad_dc_schema_extension }}"
   notify: restart domain controller
 
-- name: SAMBA_AD_DC | Apply pending configuration changes
+- name: Apply pending configuration changes
   ansible.builtin.meta: flush_handlers
 
-- name: SAMBA_AD_DC | Enable and start the domain controller
+- name: Enable and start the domain controller
   become: true
   become_user: root
   ansible.builtin.systemd_service:
@@ -31,13 +31,13 @@
     enabled: true
     state: started
 
-- name: SAMBA_AD_DC | Wait for the domain controller LDAP listener
+- name: Wait for the domain controller LDAP listener
   ansible.builtin.wait_for:
     host: "{{ samba_ad_dc_hostname }}.{{ samba_ad_dc_realm | lower }}"
     port: 389
     timeout: 60
 
-- name: SAMBA_AD_DC | Configure domain password policies
+- name: Configure domain password policies
   ansible.builtin.import_tasks: passwords.yml
   module_defaults:
     group/jomrr.samba.all:

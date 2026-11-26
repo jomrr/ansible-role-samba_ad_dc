@@ -29,7 +29,7 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_AD_DC | Verify Windows LAPS password storage and access restrictions
+- name: Verify Windows LAPS password storage and access restrictions
   samba_ad_dc_test_laps:
     server: dc1.ad.example.test
     password: "{{ samba_ad_dc_admin_password }}"

@@ -14,7 +14,7 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_AD_DC | Verify SSH keys and LDAP compatibility schema
+- name: Verify SSH keys and LDAP compatibility schema
   samba_ad_dc_test_schema:
     server: dc1.ad.example.test
     bind_username: Administrator

@@ -19,7 +19,7 @@ author:
 """
 
 EXAMPLES = r"""
-- name: SAMBA_AD_DC | Verify share directory and authentication audit coverage
+- name: Verify share directory and authentication audit coverage
   become: true
   become_user: root
   samba_ad_dc_test_audit:
